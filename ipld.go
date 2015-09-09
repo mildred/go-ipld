@@ -31,7 +31,7 @@ type Node map[string]interface{}
 // Get retrieves a property of the node. it uses unix path notation,
 // splitting on "/".
 func (n Node) Get(path_ string) interface{} {
-	return GetPath(n, path_)
+	return GetPath(n, SplitPath(path_))
 }
 
 // Type is a convenience method to retrieve "@type", if there is one.
@@ -145,13 +145,13 @@ func (l Link) Equal(l2 Link) bool {
 // in them, we simply ignore them.
 func Links(n Node) map[string]Link {
 	m := map[string]Link{}
-	Walk(n, func(root, curr Node, path string, err error) error {
+	Walk(n, func(root, curr Node, path []string, err error) error {
 		if err != nil {
 			return err // if anything went wrong, bail.
 		}
 
 		if l, ok := LinkCast(curr); ok {
-			m[path] = l
+			m[JoinPath(path)] = l
 		}
 		return nil
 	})

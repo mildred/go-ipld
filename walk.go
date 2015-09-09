@@ -2,12 +2,52 @@ package ipld
 
 import (
 	"errors"
-	"path"
 	"strconv"
 	"strings"
 )
 
 const pathSep = "/"
+
+// pathEscape escapes the / and \ characters of path components
+func pathEscape(s string) string {
+	s = strings.Replace(s, "\\", "\\\\", -1)
+	s = strings.Replace(s, "/", "\\/", -1)
+	return s
+}
+
+// JoinPath will join path elements together and escape the / character of each
+// path component.
+func JoinPath(path []string) string {
+	p := []string{}
+	for _, s := range path {
+		p = append(p, pathEscape(s))
+	}
+	return strings.Join(p, pathSep)
+}
+
+// SplitPath will split a path on / characters and return a string array. The /
+// character can be escaped with \ in which case it doesn't count as a
+// separator. Empty elements (leading, trailing and duplicate separators) are
+// ignored.
+func SplitPath(path string) []string {
+	comps := []string{}
+	comp  := []byte{}
+	esc   := false
+	for _, c := range []byte(path) {
+		if !esc && c == '/' {
+			if len(comp) > 0 {
+				comps = append(comps, string(comp))
+			}
+			comp = []byte{}
+		} else if c == '\\' {
+			esc = true
+		} else {
+			esc = false
+			comp = append(comp, c)
+		}
+	}
+	return comps
+}
 
 // SkipNode is a special value used with Walk and WalkFunc.
 // If a WalkFunc returns SkipNode, the walk skips the curr
@@ -29,7 +69,7 @@ var SkipNode = errors.New("skip node from Walk")
 // SkipNode error, the children of curr are skipped. All other
 // errors halt processing early. In this respect, it behaves
 // just like file/filepath.WalkFunc
-type WalkFunc func(root, curr Node, path string, err error) error
+type WalkFunc func(root, curr Node, path []string, err error) error
 
 // Walk traverses the given root node and all its children, calling
 // WalkFunc with every Node visited, including root. All errors
@@ -48,22 +88,22 @@ type WalkFunc func(root, curr Node, path string, err error) error
 // version of Walk that does traverse links, see the ipld/traverse
 // package.
 func Walk(root Node, walkFn WalkFunc) error {
-	return walk(root, root, "", walkFn)
+	return walk(root, root, nil, walkFn)
 }
 
 // WalkFrom is just like Walk, but starts the Walk at given startFrom
 // sub-node. It is the equivalent of a regular Walk call which skips
 // all nodes which do not have startFrom as a prefix.
-func WalkFrom(root Node, startFrom string, walkFn WalkFunc) error {
+func WalkFrom(root Node, startFrom []string, walkFn WalkFunc) error {
 	start := GetPath(root, startFrom)
 	if start == nil {
-		return errors.New("no descendant at " + startFrom)
+		return errors.New("no descendant at " + JoinPath(startFrom))
 	}
 	return walk(root, start, startFrom, walkFn)
 }
 
 // walk is used to implement Walk.
-func walk(root Node, curr interface{}, npath string, walkFunc WalkFunc) error {
+func walk(root Node, curr interface{}, npath []string, walkFunc WalkFunc) error {
 
 	if nc, ok := curr.(Node); ok { // it's a node!
 		// first, call user's WalkFunc.
@@ -76,13 +116,7 @@ func walk(root Node, curr interface{}, npath string, walkFunc WalkFunc) error {
 
 		// then recurse.
 		for k, v := range nc {
-			// skip any keys which contain "/" in them.
-			// this is explicitly disallowed.
-			if strings.Contains(k, pathSep) {
-				continue
-			}
-
-			err := walk(root, v, path.Join(npath, k), walkFunc)
+			err := walk(root, v, append(npath, k), walkFunc)
 			if err != nil {
 				return err
 			}
@@ -91,7 +125,7 @@ func walk(root Node, curr interface{}, npath string, walkFunc WalkFunc) error {
 	} else if sc, ok := curr.([]interface{}); ok { // it's a slice!
 		for i, v := range sc {
 			k := strconv.Itoa(i)
-			err := walk(root, v, path.Join(npath, k), walkFunc)
+			err := walk(root, v, append(npath, k), walkFunc)
 			if err != nil {
 				return err
 			}
@@ -103,16 +137,8 @@ func walk(root Node, curr interface{}, npath string, walkFunc WalkFunc) error {
 	return nil
 }
 
-// GetPath gets a descendant of root, at npath. GetPath
-// uses the UNIX path abstraction: components of a
-// path are delimited with "/".
-func GetPath(root interface{}, path_ string) interface{} {
-	path_ = path.Clean(path_)[1:] // skip root /
-	return GetPathCmp(root, strings.Split(path_, pathSep))
-}
-
 // GetPathCmp gets a descendant of root, at npath.
-func GetPathCmp(root interface{}, npath []string) interface{} {
+func GetPath(root interface{}, npath []string) interface{} {
 	if len(npath) == 0 {
 		return root // we're done.
 	}
@@ -123,7 +149,7 @@ func GetPathCmp(root interface{}, npath []string) interface{} {
 	k := npath[0]
 	if vn, ok := root.(Node); ok {
 		// if node, recurse
-		return GetPathCmp(vn[k], npath[1:])
+		return GetPath(vn[k], npath[1:])
 
 	} else if vs, ok := root.([]interface{}); ok {
 		// if slice, use key as an int offset
@@ -135,7 +161,7 @@ func GetPathCmp(root interface{}, npath []string) interface{} {
 			return nil
 		}
 
-		return GetPathCmp(vs[i], npath[1:])
+		return GetPath(vs[i], npath[1:])
 	}
 
 	return nil // cannot keep walking...
