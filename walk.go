@@ -15,8 +15,8 @@ func pathEscape(s string) string {
 	return s
 }
 
-// JoinPath will join path elements together and escape the / character of each
-// path component.
+// JoinPath will join path elements together and escape the /
+// character of each path component.
 func JoinPath(path []string) string {
 	p := []string{}
 	for _, s := range path {
@@ -25,10 +25,10 @@ func JoinPath(path []string) string {
 	return strings.Join(p, pathSep)
 }
 
-// SplitPath will split a path on / characters and return a string array. The /
-// character can be escaped with \ in which case it doesn't count as a
-// separator. Empty elements (leading, trailing and duplicate separators) are
-// ignored.
+// SplitPath will split a path on / characters and return a string
+// array. The / character can be escaped with \ in which case it
+// doesn't count as a separator. Empty elements (leading, trailing
+// and duplicate separators) are ignored.
 func SplitPath(path string) []string {
 	comps := []string{}
 	comp  := []byte{}
@@ -65,11 +65,15 @@ var SkipNode = errors.New("skip node from Walk")
 // how to handle the error (and Walk _will not_ descend into
 // any of the children of curr).
 //
+// WalkFunc may return a node, in which case the returned node
+// will be used for further traversal instead of the curr
+// node.
+//
 // WalkFunc may return an error. If the error is the special
 // SkipNode error, the children of curr are skipped. All other
 // errors halt processing early. In this respect, it behaves
 // just like file/filepath.WalkFunc
-type WalkFunc func(root, curr Node, path []string, err error) error
+type WalkFunc func(root, curr Node, path []string, err error) (Node, error)
 
 // Walk traverses the given root node and all its children, calling
 // WalkFunc with every Node visited, including root. All errors
@@ -84,57 +88,76 @@ type WalkFunc func(root, curr Node, path []string, err error) error
 //     {"c":"ccc"}, // visited as foo/2
 //   ]}
 //
+// Walk returns a node constructed from the transformed result of the
+// walk function.
+//
 // Note Walk is purely local and does not traverse Links. For a
 // version of Walk that does traverse links, see the ipld/traverse
 // package.
-func Walk(root Node, walkFn WalkFunc) error {
-	return walk(root, root, nil, walkFn)
+func Walk(root Node, walkFn WalkFunc) (Node, error) {
+	n, err := walk(root, root, nil, walkFn)
+	if node, ok := n.(Node); ok {
+		return node, err
+	} else {
+		return nil, err
+	}
 }
 
 // WalkFrom is just like Walk, but starts the Walk at given startFrom
 // sub-node. It is the equivalent of a regular Walk call which skips
 // all nodes which do not have startFrom as a prefix.
-func WalkFrom(root Node, startFrom []string, walkFn WalkFunc) error {
+func WalkFrom(root Node, startFrom []string, walkFn WalkFunc) (interface{}, error) {
 	start := GetPath(root, startFrom)
 	if start == nil {
-		return errors.New("no descendant at " + JoinPath(startFrom))
+		return nil, errors.New("no descendant at " + JoinPath(startFrom))
 	}
 	return walk(root, start, startFrom, walkFn)
 }
 
 // walk is used to implement Walk.
-func walk(root Node, curr interface{}, npath []string, walkFunc WalkFunc) error {
+func walk(root Node, curr interface{}, npath []string, walkFunc WalkFunc) (interface{}, error) {
 
 	if nc, ok := curr.(Node); ok { // it's a node!
 		// first, call user's WalkFunc.
-		err := walkFunc(root, nc, npath, nil)
+		newnode, err := walkFunc(root, nc, npath, nil)
+		res := Node{}
 		if err == SkipNode {
-			return nil // ok, let's skip this one.
+			return newnode, nil // ok, let's skip this one.
 		} else if err != nil {
-			return err // something bad happened, return early.
+			return nil, err // something bad happened, return early.
+		} else if newnode != nil {
+			nc = newnode
 		}
 
 		// then recurse.
 		for k, v := range nc {
-			err := walk(root, v, append(npath, k), walkFunc)
+			n, err := walk(root, v, append(npath, k), walkFunc)
 			if err != nil {
-				return err
+				return nil, err
+			} else if n != nil {
+				res[k] = n
 			}
 		}
 
+		return res, nil
+
 	} else if sc, ok := curr.([]interface{}); ok { // it's a slice!
+		res := []interface{}{}
 		for i, v := range sc {
 			k := strconv.Itoa(i)
-			err := walk(root, v, append(npath, k), walkFunc)
+			n, err := walk(root, v, append(npath, k), walkFunc)
 			if err != nil {
-				return err
+				return nil, err
+			} else if n != nil {
+				res = append(res, n)
 			}
 		}
+		return res, nil
 
 	} else { // it's just data.
 		// ignore it.
 	}
-	return nil
+	return curr, nil
 }
 
 // GetPathCmp gets a descendant of root, at npath.

@@ -145,15 +145,15 @@ func (l Link) Equal(l2 Link) bool {
 // in them, we simply ignore them.
 func Links(n Node) map[string]Link {
 	m := map[string]Link{}
-	Walk(n, func(root, curr Node, path []string, err error) error {
+	Walk(n, func(root, curr Node, path []string, err error) (Node, error) {
 		if err != nil {
-			return err // if anything went wrong, bail.
+			return nil, err // if anything went wrong, bail.
 		}
 
 		if l, ok := LinkCast(curr); ok {
 			m[JoinPath(path)] = l
 		}
-		return nil
+		return nil, nil
 	})
 	return m
 }
