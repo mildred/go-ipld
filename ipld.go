@@ -47,6 +47,36 @@ func (d Node) Context() interface{} {
 	return d[CtxKey]
 }
 
+// Like StripDirectivesAll but on the root node only, for use in Walk
+func (d Node) StripDirectives() Node {
+	attrs, _, index, escapedIndex := ParseNodeIndex(d)
+	_, has_index := attrs["@index"];
+	if isContainerIndex(d) && (len(attrs) == 0 || (len(attrs) == 1 && has_index)) {
+		return index
+	} else {
+		index_name := containerIndexName(attrs, defaultIndexName)
+		if has_index && len(index) > 0 {
+			delete(attrs, "@index")
+			attrs[index_name] = escapedIndex
+		}
+		return attrs
+	}
+}
+
+// Strip all directives from the node. If the node has attributes, this is the
+// new root node, and the @index (if it exists) is placed below. If there is no
+// attributes and the node is a @index @container, the container is the new root
+// node.
+func (d Node) StripDirectivesAll() Node {
+	res, err := Walk(d, func(root, curr Node, path []string, err error) (Node, error) {
+		return curr.StripDirectives(), err
+	})
+	if err != nil {
+		panic(err) // should not happen
+	}
+	return res
+}
+
 // Links returns all the merkle-links in the document. When the document
 // is parsed, all the links are identified and references are cached, so
 // getting the links only walks the document _once_. Note though that the
@@ -153,7 +183,7 @@ func Links(n Node) map[string]Link {
 		if l, ok := LinkCast(curr); ok {
 			m[JoinPath(path)] = l
 		}
-		return nil, nil
+		return curr.StripDirectives(), nil
 	})
 	return m
 }

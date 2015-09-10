@@ -2,12 +2,14 @@ package ipld
 
 import (
 	"testing"
+	"reflect"
 
 	mh "github.com/jbenet/go-multihash"
 )
 
 type TC struct {
 	src   Node
+	json  Node
 	links map[string]string
 	typ   string
 	ctx   interface{}
@@ -32,6 +34,13 @@ func init() {
 				"mlink":  "QmZku7P7KeeHAnwMr6c4HveYfMzmtVinNXzibkiNbfDbPo",
 			},
 		},
+		json: Node{
+			"foo": "bar",
+			"bar": []int{1, 2, 3},
+			"baz": Node{
+				"mlink":  "QmZku7P7KeeHAnwMr6c4HveYfMzmtVinNXzibkiNbfDbPo",
+			},
+		},
 		links: map[string]string{
 			"baz": "QmZku7P7KeeHAnwMr6c4HveYfMzmtVinNXzibkiNbfDbPo",
 		},
@@ -39,27 +48,79 @@ func init() {
 		ctx: nil,
 	}, TC{
 		src: Node{
-			"@context": "/ipfs/QmZku7P7KeeHAnwMr6c4HveYfMzmtVinNXzibkiNbfDbPo/mdag",
+			"foo": "bar",
+			"bar": []int{1, 2, 3},
+			"@container": "@index",
+			"@index": "links",
 			"baz": Node{
 				"mlink":  "QmZku7P7KeeHAnwMr6c4HveYfMzmtVinNXzibkiNbfDbPo",
 			},
-			"bazz": Node{
+		},
+		json: Node{
+			"foo": "bar",
+			"bar": []int{1, 2, 3},
+			"baz": Node{
 				"mlink":  "QmZku7P7KeeHAnwMr6c4HveYfMzmtVinNXzibkiNbfDbPo",
 			},
-			"bar": Node{
+		},
+		links: map[string]string{
+			"baz": "QmZku7P7KeeHAnwMr6c4HveYfMzmtVinNXzibkiNbfDbPo",
+		},
+		typ: "",
+		ctx: nil,
+	}, TC{
+		src: Node{
+			"@attrs": Node{
+				"attr": "val",
+			},
+			"foo":        "bar",
+			"@index":     "files",
+			"@type":      "commit",
+			"@container": "@index",
+			"@context": "/ipfs/QmZku7P7KeeHAnwMr6c4HveYfMzmtVinNXzibkiNbfDbPo/mdag",
+			"baz": Node{
+				"foobar": "barfoo",
+				"mlink":  "QmZku7P7KeeHAnwMr6c4HveYfMzmtVinNXzibkiNbfDbPo",
+			},
+			"\\@bazz": Node{
+				"mlink":  "QmZku7P7KeeHAnwMr6c4HveYfMzmtVinNXzibkiNbfDbPo",
+			},
+			"bar/ra\\b": Node{
 				"mlink":  "QmZku7P7KeeHAnwMr6c4HveYfMzmtVinNXzibkiNbfDbPb",
 			},
-			"bar2": Node{
+			"bar": Node{
+				"@container": "@index",
 				"foo": Node{
 					"mlink":  "QmZku7P7KeeHAnwMr6c4HveYfMzmtVinNXzibkiNbfDbPa",
 				},
 			},
 		},
+		json: Node{
+			"attr": "val",
+			"files": Node{
+				"foo": "bar",
+				"baz": Node{
+					"foobar": "barfoo",
+					"mlink":  "QmZku7P7KeeHAnwMr6c4HveYfMzmtVinNXzibkiNbfDbPo",
+				},
+				"@bazz": Node{
+					"mlink":  "QmZku7P7KeeHAnwMr6c4HveYfMzmtVinNXzibkiNbfDbPo",
+				},
+				"bar/ra\\b": Node{
+					"mlink":  "QmZku7P7KeeHAnwMr6c4HveYfMzmtVinNXzibkiNbfDbPb",
+				},
+				"bar": Node{
+					"foo": Node{
+						"mlink":  "QmZku7P7KeeHAnwMr6c4HveYfMzmtVinNXzibkiNbfDbPa",
+					},
+				},
+			},
+		},
 		links: map[string]string{
-			"baz":      "QmZku7P7KeeHAnwMr6c4HveYfMzmtVinNXzibkiNbfDbPo",
-			"bazz":     "QmZku7P7KeeHAnwMr6c4HveYfMzmtVinNXzibkiNbfDbPo",
-			"bar":      "QmZku7P7KeeHAnwMr6c4HveYfMzmtVinNXzibkiNbfDbPb",
-			"bar2/foo": "QmZku7P7KeeHAnwMr6c4HveYfMzmtVinNXzibkiNbfDbPa",
+			"files/baz":           "QmZku7P7KeeHAnwMr6c4HveYfMzmtVinNXzibkiNbfDbPo",
+			"files/@bazz":         "QmZku7P7KeeHAnwMr6c4HveYfMzmtVinNXzibkiNbfDbPo",
+			"files/bar\\/ra\\\\b": "QmZku7P7KeeHAnwMr6c4HveYfMzmtVinNXzibkiNbfDbPb",
+			"files/bar/foo":       "QmZku7P7KeeHAnwMr6c4HveYfMzmtVinNXzibkiNbfDbPa",
 		},
 		typ: "",
 		ctx: "/ipfs/QmZku7P7KeeHAnwMr6c4HveYfMzmtVinNXzibkiNbfDbPo/mdag",
@@ -83,5 +144,14 @@ func TestParsing(t *testing.T) {
 				t.Errorf("links do not match. %d/%#v %#v != %#v[mlink]", tci, k, l1, l2)
 			}
 		}
+
+		// check JSON mode
+		json := doc.StripDirectivesAll()
+		if !reflect.DeepEqual(tc.json, json) {
+			t.Errorf("JSON version mismatch.\nGot:    %#v\nExpect: %#v", json, tc.json)
+		} else {
+			t.Log("JSON version OK")
+		}
+
 	}
 }
