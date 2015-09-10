@@ -77,6 +77,62 @@ func (d Node) StripDirectivesAll() Node {
 	return res
 }
 
+// Like ToLinkedDataAll but on the root node only, for use in Walk
+func (d Node) ToLinkedData() Node {
+	attrs, directives, _, index := ParseNodeIndex(d)
+	for k, v := range directives {
+		if k != "@container" {
+			attrs[k] = v
+		}
+	}
+	if len(index) > 0 {
+		index_name := containerIndexName(attrs, defaultIndexName)
+		delete(attrs, "@index")
+		if index_name[0] != '@' {
+			attrs[index_name] = index
+		}
+	}
+	return attrs
+}
+
+// Reorganize the data to be valid JSON-LD. This expand custom IPLD directives
+// and unescape keys.
+//
+// The main processing now is to transform a IPLD data structure like this:
+//
+//	{
+//		"@container": "@index",
+//		"@index": "index-name",
+//		"@attrs": {
+//			"key": "value",
+//		},
+//		"index": { ... }
+//	}
+//
+// to:
+//
+//	{
+//		"key": "value",
+//		"index-name": {
+//			"index": { ... }
+//		}
+//	}
+//
+// In that case, it is good practice to define in the context the following
+// type (this function cannot change the context):
+//
+//	"index-name": { "@container": "@index" }
+//
+func (d Node) ToLinkedDataAll() Node {
+	res, err := Walk(d, func(root, curr Node, path []string, err error) (Node, error) {
+		return curr.ToLinkedData(), err
+	})
+	if err != nil {
+		panic(err) // should not happen
+	}
+	return res
+}
+
 // Links returns all the merkle-links in the document. When the document
 // is parsed, all the links are identified and references are cached, so
 // getting the links only walks the document _once_. Note though that the
