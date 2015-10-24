@@ -181,14 +181,15 @@ func ld2pbLink(link ipld.Node) (pbl *PBLink) {
 }
 
 func IsOldProtobufNode(n ipld.Node) bool {
-	if len(n) > 2 { // short circuit
+	attrs, has_attrs := n["@attrs"].(ipld.Node)
+	if !has_attrs {
 		return false
 	}
 
-	links, hasLinks := n["links"]
-	_, hasData := n["data"]
+	links, hasLinks := attrs["links"]
+	_, hasData := attrs["data"]
 
-	switch len(n) {
+	switch len(attrs) {
 	case 2: // must be links and data
 		if !hasLinks || !hasData {
 			return false
@@ -201,7 +202,7 @@ func IsOldProtobufNode(n ipld.Node) bool {
 		return false
 	}
 
-	if len(n) > 2 {
+	if len(attrs) > 2 {
 		return false // only links and data.
 	}
 
@@ -211,9 +212,15 @@ func IsOldProtobufNode(n ipld.Node) bool {
 			return false // invalid links.
 		}
 
-		// every link must be a mlink
+		// every link must contain a hash, name and size
 		for _, link := range links {
-			if !ipld.IsLink(link) {
+			if _, ok := link["hash"].([]byte); !ok {
+				return false
+			}
+			if _, ok := link["name"].(string); !ok {
+				return false
+			}
+			if _, ok := link["size"].(uint64); !ok {
 				return false
 			}
 		}

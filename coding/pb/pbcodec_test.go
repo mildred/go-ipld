@@ -73,6 +73,10 @@ func TestPB2LD(t *testing.T) {
 		t.Fatal("failed to decode", err)
 	}
 
+	if ! IsOldProtobufNode(n) {
+		t.Error("IsOldProtobufNode is false")
+	}
+
 	attrs, ok := n["@attrs"].(ipld.Node)
 	if !ok {
 		t.Log(n)
