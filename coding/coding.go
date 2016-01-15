@@ -1,13 +1,27 @@
 package ipfsld
 
 import (
+	"fmt"
+	"io"
+
 	mc "github.com/jbenet/go-multicodec"
 	mccbor "github.com/jbenet/go-multicodec/cbor"
+	mcjson "github.com/jbenet/go-multicodec/json"
 	mcmux "github.com/jbenet/go-multicodec/mux"
 
 	ipld "github.com/ipfs/go-ipld"
 	pb "github.com/ipfs/go-ipld/coding/pb"
+	reader "github.com/ipfs/go-ipld/reader"
 )
+
+var StreamCodecs map[string]func(io.Reader) (reader.NodeReader, error) = map[string]func(io.Reader) (reader.NodeReader, error){
+	mcjson.HeaderPath: func(r io.Reader) (reader.NodeReader, error) {
+		return &JSONDecoder{r}, nil
+	},
+	mccbor.HeaderPath: func(r io.Reader) (reader.NodeReader, error) {
+		return &CBORDecoder{r}, nil
+	},
+}
 
 // defaultCodec is the default applied if user does not specify a codec.
 // Most new objects will never specify a codec. We track the codecs with
@@ -26,6 +40,14 @@ func init() {
 		JsonMulticodec(),
 		pb.Multicodec(),
 	}, selectCodec)
+	StreamCodecs = map[string]func(io.Reader) (reader.NodeReader, error){
+		mcjson.HeaderPath: func(r io.Reader) (reader.NodeReader, error) {
+			return &JSONDecoder{r}, nil
+		},
+		mccbor.HeaderPath: func(r io.Reader) (reader.NodeReader, error) {
+			return &CBORDecoder{r}, nil
+		},
+	}
 }
 
 // Multicodec returns a muxing codec that marshals to
@@ -72,4 +94,24 @@ func codecKey(n ipld.Node) (string, error) {
 	}
 
 	return chdrs, nil
+}
+
+func Decode(r io.Reader) (reader.NodeReader, error) {
+	if err := mc.ConsumeHeader(r, mcmux.Header); err != nil {
+		return nil, err
+	}
+
+	// get next header, to select codec
+	hdr, err := mc.ReadHeader(r)
+	if err != nil {
+		return nil, err
+	}
+
+	hdrPath := string(mc.HeaderPath(hdr))
+
+	fun, ok := StreamCodecs[hdrPath]
+	if !ok {
+		return nil, fmt.Errorf("no codec for %s", hdr)
+	}
+	return fun(r)
 }

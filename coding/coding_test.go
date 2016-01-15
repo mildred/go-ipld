@@ -1,15 +1,18 @@
 package ipfsld
 
 import (
-	"io/ioutil"
-	"testing"
-	"reflect"
 	"bytes"
+	"io/ioutil"
+	"reflect"
+	"testing"
 
 	ipld "github.com/ipfs/go-ipld"
+	reader "github.com/ipfs/go-ipld/reader"
+	readertest "github.com/ipfs/go-ipld/reader/test"
 
 	mc "github.com/jbenet/go-multicodec"
 	mctest "github.com/jbenet/go-multicodec/test"
+	assrt "github.com/mildred/assrt"
 )
 
 var codedFiles map[string][]byte = map[string][]byte{
@@ -119,7 +122,7 @@ func TestCodecsDecodeEncode(t *testing.T) {
 		}
 
 		linksExpected := map[string]ipld.Link{
-			"abc": ipld.Link {
+			"abc": ipld.Link{
 				"mlink": "QmXg9Pp2ytZ14xgmQjYEiHjVjMFXzCVVEcRTWJBmLgR39V",
 			},
 		}
@@ -148,3 +151,35 @@ func TestCodecsDecodeEncode(t *testing.T) {
 	}
 }
 
+func TestStream(t *testing.T) {
+	a := assrt.NewAssert(t)
+	json, err := Decode(bytes.NewReader(codedFiles["json.testfile"]))
+	a.MustNil(err)
+
+	t.Logf("Reading json.testfile")
+	readertest.CheckReader(t, json, []readertest.Callback{
+		readertest.Callback{[]interface{}{}, reader.TokenNode, nil},
+		readertest.Callback{[]interface{}{}, reader.TokenKey, "@codec"},
+		readertest.Callback{[]interface{}{"@codec"}, reader.TokenValue, "/json"},
+		readertest.Callback{[]interface{}{}, reader.TokenKey, "abc"},
+		readertest.Callback{[]interface{}{"abc"}, reader.TokenNode, nil},
+		readertest.Callback{[]interface{}{"abc"}, reader.TokenKey, "mlink"},
+		readertest.Callback{[]interface{}{"abc", "mlink"}, reader.TokenValue, "QmXg9Pp2ytZ14xgmQjYEiHjVjMFXzCVVEcRTWJBmLgR39V"},
+		readertest.Callback{[]interface{}{"abc"}, reader.TokenEndNode, nil},
+		readertest.Callback{[]interface{}{}, reader.TokenEndNode, nil},
+	})
+
+	cbor, err := Decode(bytes.NewReader(codedFiles["cbor.testfile"]))
+	a.MustNil(err)
+
+	t.Logf("Reading cbor.testfile")
+	readertest.CheckReader(t, cbor, []readertest.Callback{
+		readertest.Callback{[]interface{}{}, reader.TokenNode, nil},
+		readertest.Callback{[]interface{}{}, reader.TokenKey, "abc"},
+		readertest.Callback{[]interface{}{"abc"}, reader.TokenNode, nil},
+		readertest.Callback{[]interface{}{"abc"}, reader.TokenKey, "mlink"},
+		readertest.Callback{[]interface{}{"abc", "mlink"}, reader.TokenValue, "QmXg9Pp2ytZ14xgmQjYEiHjVjMFXzCVVEcRTWJBmLgR39V"},
+		readertest.Callback{[]interface{}{"abc"}, reader.TokenEndNode, nil},
+		readertest.Callback{[]interface{}{}, reader.TokenEndNode, nil},
+	})
+}
