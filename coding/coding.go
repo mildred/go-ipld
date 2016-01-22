@@ -14,14 +14,10 @@ import (
 	reader "github.com/ipfs/go-ipld/reader"
 )
 
-var StreamCodecs map[string]func(io.Reader) (reader.NodeReader, error) = map[string]func(io.Reader) (reader.NodeReader, error){
-	mcjson.HeaderPath: func(r io.Reader) (reader.NodeReader, error) {
-		return &JSONDecoder{r}, nil
-	},
-	mccbor.HeaderPath: func(r io.Reader) (reader.NodeReader, error) {
-		return &CBORDecoder{r}, nil
-	},
-}
+var Header []byte
+var HeaderPath string
+
+var StreamCodecs map[string]func(io.Reader) (reader.NodeReader, error)
 
 // defaultCodec is the default applied if user does not specify a codec.
 // Most new objects will never specify a codec. We track the codecs with
@@ -33,6 +29,8 @@ var defaultCodec string
 var muxCodec *mcmux.Multicodec
 
 func init() {
+	HeaderPath = "/mdagv1"
+	Header = mc.Header([]byte(HeaderPath))
 	// by default, always encode things as cbor
 	defaultCodec = string(mc.HeaderPath(mccbor.Header))
 	muxCodec = mcmux.MuxMulticodec([]mc.Multicodec{

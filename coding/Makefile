@@ -14,19 +14,13 @@ bin/convert:
 
 json.testfile: bin/multicodec Makefile test1.json
 	: >$@
-	bin/multicodec header /multicodec >>$@
+	bin/multicodec header /mdagv1 >>$@
 	bin/multicodec header /json >>$@
 	cat test1.json >>$@
 
-cbor.testfile: json.testfile bin/convert
-	bin/multicodec header /multicodec >$@
-	bin/convert -i $< -o $@.tmp -c '/cbor'
-	cat $@.tmp >>$@
-	rm -f $@.tmp
-
-cbor.testfile2: bin/multicodec bin/json2cbor Makefile test1.json
+cbor.testfile: bin/multicodec bin/json2cbor Makefile test1.json
 	: >$@
-	bin/multicodec header /multicodec >>$@
+	bin/multicodec header /mdagv1 >>$@
 	bin/multicodec header /cbor >>$@
 	bin/json2cbor -i test1.json -o - >>$@
 

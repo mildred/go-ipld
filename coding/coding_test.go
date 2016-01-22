@@ -151,12 +151,12 @@ func TestCodecsDecodeEncode(t *testing.T) {
 	}
 }
 
-func TestStream(t *testing.T) {
+func TestJsonStream(t *testing.T) {
 	a := assrt.NewAssert(t)
+	t.Logf("Reading json.testfile")
 	json, err := Decode(bytes.NewReader(codedFiles["json.testfile"]))
 	a.MustNil(err)
 
-	t.Logf("Reading json.testfile")
 	readertest.CheckReader(t, json, []readertest.Callback{
 		readertest.Callback{[]interface{}{}, reader.TokenNode, nil},
 		readertest.Callback{[]interface{}{}, reader.TokenKey, "@codec"},
@@ -168,11 +168,14 @@ func TestStream(t *testing.T) {
 		readertest.Callback{[]interface{}{"abc"}, reader.TokenEndNode, nil},
 		readertest.Callback{[]interface{}{}, reader.TokenEndNode, nil},
 	})
+}
 
+func TestCborStream(t *testing.T) {
+	a := assrt.NewAssert(t)
+	t.Logf("Reading cbor.testfile")
 	cbor, err := Decode(bytes.NewReader(codedFiles["cbor.testfile"]))
 	a.MustNil(err)
 
-	t.Logf("Reading cbor.testfile")
 	readertest.CheckReader(t, cbor, []readertest.Callback{
 		readertest.Callback{[]interface{}{}, reader.TokenNode, nil},
 		readertest.Callback{[]interface{}{}, reader.TokenKey, "abc"},
@@ -180,6 +183,11 @@ func TestStream(t *testing.T) {
 		readertest.Callback{[]interface{}{"abc"}, reader.TokenKey, "mlink"},
 		readertest.Callback{[]interface{}{"abc", "mlink"}, reader.TokenValue, "QmXg9Pp2ytZ14xgmQjYEiHjVjMFXzCVVEcRTWJBmLgR39V"},
 		readertest.Callback{[]interface{}{"abc"}, reader.TokenEndNode, nil},
+		readertest.Callback{[]interface{}{}, reader.TokenKey, "@codec"},
+		readertest.Callback{[]interface{}{"@codec"}, reader.TokenValue, "/json"},
+		readertest.Callback{[]interface{}{}, reader.TokenEndNode, nil},
+	})
+}
 		readertest.Callback{[]interface{}{}, reader.TokenEndNode, nil},
 	})
 }
