@@ -28,22 +28,27 @@ var defaultCodec string
 
 var muxCodec *mcmux.Multicodec
 
+var ErrAlreadyRead error = fmt.Errorf("Stream already read: unable to read it a second time")
+
 func init() {
 	HeaderPath = "/mdagv1"
 	Header = mc.Header([]byte(HeaderPath))
+
 	// by default, always encode things as cbor
 	defaultCodec = string(mc.HeaderPath(mccbor.Header))
+
 	muxCodec = mcmux.MuxMulticodec([]mc.Multicodec{
 		CborMulticodec(),
 		JsonMulticodec(),
 		pb.Multicodec(),
 	}, selectCodec)
+
 	StreamCodecs = map[string]func(io.Reader) (reader.NodeReader, error){
 		mcjson.HeaderPath: func(r io.Reader) (reader.NodeReader, error) {
-			return &JSONDecoder{r}, nil
+			return NewJSONDecoder(r)
 		},
 		mccbor.HeaderPath: func(r io.Reader) (reader.NodeReader, error) {
-			return &CBORDecoder{r}, nil
+			return NewCBORDecoder(r)
 		},
 	}
 }

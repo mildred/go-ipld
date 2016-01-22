@@ -9,7 +9,8 @@ import (
 )
 
 type JSONDecoder struct {
-	r io.Reader
+	r   io.Reader
+	pos int64
 }
 
 type jsonParser struct {
@@ -17,7 +18,32 @@ type jsonParser struct {
 	decoder *json.Decoder
 }
 
+func NewJSONDecoder(r io.Reader) (*JSONDecoder, error) {
+	s := r.(io.Seeker)
+	if s == nil {
+		return &JSONDecoder{r, -1}, nil
+	} else {
+		offset, err := s.Seek(0, 1)
+		if err != nil {
+			return nil, err
+		}
+		return &JSONDecoder{r, offset}, nil
+	}
+}
+
 func (d *JSONDecoder) Read(cb reader.ReadFun) error {
+	if d.pos == -2 {
+		return ErrAlreadyRead
+	} else if d.pos == -1 {
+		d.pos = -2
+	} else {
+		newoffset, err := d.r.(io.Seeker).Seek(d.pos, 0)
+		if err != nil {
+			return err
+		} else if newoffset != d.pos {
+			return fmt.Errorf("Failed to seek to position %d", d.pos)
+		}
+	}
 	jsonParser := &jsonParser{
 		reader.CreateBaseReader(cb),
 		json.NewDecoder(d.r),
