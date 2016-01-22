@@ -1,11 +1,11 @@
-package ipfsld
+package coding
 
 import (
 	"encoding/json"
 	"fmt"
 	"io"
 
-	reader "github.com/ipfs/go-ipld/reader"
+	reader "github.com/ipfs/go-ipld"
 )
 
 type JSONDecoder struct {

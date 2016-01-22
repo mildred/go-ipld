@@ -1,11 +1,11 @@
-package ipfsld
+package coding
 
 import (
 	"fmt"
 	"io"
 	"math/big"
 
-	reader "github.com/ipfs/go-ipld/reader"
+	reader "github.com/ipfs/go-ipld"
 	cbor "github.com/whyrusleeping/cbor/go"
 )
 

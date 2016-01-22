@@ -3,7 +3,7 @@ package test
 import (
 	"testing"
 
-	"github.com/ipfs/go-ipld/reader"
+	reader "github.com/ipfs/go-ipld"
 	"github.com/mildred/assrt"
 )
 

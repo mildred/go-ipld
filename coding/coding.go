@@ -1,4 +1,4 @@
-package ipfsld
+package coding
 
 import (
 	"fmt"
@@ -9,9 +9,9 @@ import (
 	mcjson "github.com/jbenet/go-multicodec/json"
 	mcmux "github.com/jbenet/go-multicodec/mux"
 
-	ipld "github.com/ipfs/go-ipld"
+	reader "github.com/ipfs/go-ipld"
 	pb "github.com/ipfs/go-ipld/coding/pb"
-	reader "github.com/ipfs/go-ipld/reader"
+	memory "github.com/ipfs/go-ipld/memory"
 )
 
 var Header []byte
@@ -61,7 +61,7 @@ func Multicodec() mc.Multicodec {
 }
 
 func selectCodec(v interface{}, codecs []mc.Multicodec) mc.Multicodec {
-	vn, ok := v.(*ipld.Node)
+	vn, ok := v.(*memory.Node)
 	if !ok {
 		return nil
 	}
@@ -80,8 +80,8 @@ func selectCodec(v interface{}, codecs []mc.Multicodec) mc.Multicodec {
 	return nil // no codec
 }
 
-func codecKey(n ipld.Node) (string, error) {
-	chdr, ok := (n)[ipld.CodecKey]
+func codecKey(n memory.Node) (string, error) {
+	chdr, ok := (n)[memory.CodecKey]
 	if !ok {
 		// if no codec is defined, use our default codec
 		chdr = defaultCodec

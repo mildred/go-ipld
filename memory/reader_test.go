@@ -1,4 +1,4 @@
-package ipld
+package memory
 
 import (
 	"testing"

@@ -1,11 +1,11 @@
-package ipld
+package memory
 
 import (
 	"errors"
 	"reflect"
 	"sort"
 
-	"github.com/ipfs/go-ipld/reader"
+	reader "github.com/ipfs/go-ipld"
 	mh "github.com/jbenet/go-multihash"
 )
 

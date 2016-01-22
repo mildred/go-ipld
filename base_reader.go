@@ -1,4 +1,4 @@
-package reader
+package ipld
 
 type BaseReader struct {
 	Callback  ReadFun

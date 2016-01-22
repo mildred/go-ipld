@@ -1,4 +1,4 @@
-package ipfsld
+package coding
 
 import (
 	"bytes"
@@ -6,9 +6,9 @@ import (
 	"reflect"
 	"testing"
 
-	ipld "github.com/ipfs/go-ipld"
-	reader "github.com/ipfs/go-ipld/reader"
-	readertest "github.com/ipfs/go-ipld/reader/test"
+	reader "github.com/ipfs/go-ipld"
+	memory "github.com/ipfs/go-ipld/memory"
+	readertest "github.com/ipfs/go-ipld/test"
 
 	mc "github.com/jbenet/go-multicodec"
 	mctest "github.com/jbenet/go-multicodec/test"
@@ -32,8 +32,8 @@ func init() {
 
 type TC struct {
 	cbor  []byte
-	src   ipld.Node
-	links map[string]ipld.Link
+	src   memory.Node
+	links map[string]memory.Link
 	typ   string
 	ctx   interface{}
 }
@@ -43,15 +43,15 @@ var testCases []TC
 func init() {
 	testCases = append(testCases, TC{
 		[]byte{},
-		ipld.Node{
+		memory.Node{
 			"foo": "bar",
 			"bar": []int{1, 2, 3},
-			"baz": ipld.Node{
+			"baz": memory.Node{
 				"@type": "mlink",
 				"hash":  "QmZku7P7KeeHAnwMr6c4HveYfMzmtVinNXzibkiNbfDbPo",
 			},
 		},
-		map[string]ipld.Link{
+		map[string]memory.Link{
 			"baz": {"@type": "mlink", "hash": ("QmZku7P7KeeHAnwMr6c4HveYfMzmtVinNXzibkiNbfDbPo")},
 		},
 		"",
@@ -60,30 +60,30 @@ func init() {
 
 	testCases = append(testCases, TC{
 		[]byte{},
-		ipld.Node{
+		memory.Node{
 			"foo":      "bar",
 			"@type":    "commit",
 			"@context": "/ipfs/QmZku7P7KeeHAnwMr6c4HveYfMzmtVinNXzibkiNbfDbPo/mdag",
-			"baz": ipld.Node{
+			"baz": memory.Node{
 				"@type": "mlink",
 				"hash":  "QmZku7P7KeeHAnwMr6c4HveYfMzmtVinNXzibkiNbfDbPo",
 			},
-			"bazz": ipld.Node{
+			"bazz": memory.Node{
 				"@type": "mlink",
 				"hash":  "QmZku7P7KeeHAnwMr6c4HveYfMzmtVinNXzibkiNbfDbPo",
 			},
-			"bar": ipld.Node{
+			"bar": memory.Node{
 				"@type": "mlinkoo",
 				"hash":  "QmZku7P7KeeHAnwMr6c4HveYfMzmtVinNXzibkiNbfDbPo",
 			},
-			"bar2": ipld.Node{
-				"foo": ipld.Node{
+			"bar2": memory.Node{
+				"foo": memory.Node{
 					"@type": "mlink",
 					"hash":  "QmZku7P7KeeHAnwMr6c4HveYfMzmtVinNXzibkiNbfDbPo",
 				},
 			},
 		},
-		map[string]ipld.Link{
+		map[string]memory.Link{
 			"baz":      {"@type": "mlink", "hash": ("QmZku7P7KeeHAnwMr6c4HveYfMzmtVinNXzibkiNbfDbPo")},
 			"bazz":     {"@type": "mlink", "hash": ("QmZku7P7KeeHAnwMr6c4HveYfMzmtVinNXzibkiNbfDbPo")},
 			"bar2/foo": {"@type": "mlink", "hash": ("QmZku7P7KeeHAnwMr6c4HveYfMzmtVinNXzibkiNbfDbPo")},
@@ -104,7 +104,7 @@ func TestHeaderMC(t *testing.T) {
 func TestRoundtripBasicMC(t *testing.T) {
 	codec := Multicodec()
 	for _, tca := range testCases {
-		var tcb ipld.Node
+		var tcb memory.Node
 		mctest.RoundTripTest(t, codec, &(tca.src), &tcb)
 	}
 }
@@ -112,7 +112,7 @@ func TestRoundtripBasicMC(t *testing.T) {
 // Test decoding and encoding a json and cbor file
 func TestCodecsDecodeEncode(t *testing.T) {
 	for fname, testfile := range codedFiles {
-		var n ipld.Node
+		var n memory.Node
 		codec := Multicodec()
 
 		if err := mc.Unmarshal(codec, testfile, &n); err != nil {
@@ -121,12 +121,12 @@ func TestCodecsDecodeEncode(t *testing.T) {
 			continue
 		}
 
-		linksExpected := map[string]ipld.Link{
-			"abc": ipld.Link{
+		linksExpected := map[string]memory.Link{
+			"abc": memory.Link{
 				"mlink": "QmXg9Pp2ytZ14xgmQjYEiHjVjMFXzCVVEcRTWJBmLgR39V",
 			},
 		}
-		linksActual := ipld.Links(n)
+		linksActual := memory.Links(n)
 		if !reflect.DeepEqual(linksExpected, linksActual) {
 			t.Logf("Expected: %#v", linksExpected)
 			t.Logf("Actual:   %#v", linksActual)
@@ -185,9 +185,6 @@ func TestCborStream(t *testing.T) {
 		readertest.Callback{[]interface{}{"abc"}, reader.TokenEndNode, nil},
 		readertest.Callback{[]interface{}{}, reader.TokenKey, "@codec"},
 		readertest.Callback{[]interface{}{"@codec"}, reader.TokenValue, "/json"},
-		readertest.Callback{[]interface{}{}, reader.TokenEndNode, nil},
-	})
-}
 		readertest.Callback{[]interface{}{}, reader.TokenEndNode, nil},
 	})
 }
