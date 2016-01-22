@@ -2,6 +2,7 @@ package ipld
 
 import (
 	"errors"
+	"fmt"
 )
 
 type nodeReadErrors struct{ error }
@@ -42,7 +43,7 @@ func TokenName(tok ReaderToken) string {
 	case TokenEndArray:
 		return "TokenEndArray"
 	default:
-		return ""
+		return fmt.Sprintf("Token%d", tok)
 	}
 }
 
