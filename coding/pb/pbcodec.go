@@ -9,9 +9,11 @@ import (
 	mcproto "github.com/jbenet/go-multicodec/protobuf"
 
 	memory "github.com/ipfs/go-ipld/memory"
+	base58 "github.com/jbenet/go-base58"
 )
 
 var Header []byte
+var HeaderPath string
 
 var (
 	errInvalidData = fmt.Errorf("invalid merkledag v1 protobuf, Data not bytes")
@@ -19,7 +21,8 @@ var (
 )
 
 func init() {
-	Header = mc.Header([]byte("/mdagv1"))
+	HeaderPath = "/mdagv1"
+	Header = mc.Header([]byte(HeaderPath))
 }
 
 type codec struct {
@@ -95,19 +98,10 @@ func (c *decoder) Decode(v interface{}) error {
 func ld2pbNode(in *memory.Node) (*PBNode, error) {
 	n := *in
 	var pbn PBNode
-	var attrs memory.Node
+	var ordered_links []interface{}
+	var named_links memory.Node
 
-	if attrsvalue, hasattrs := n["@attrs"]; hasattrs {
-		var ok bool
-		attrs, ok = attrsvalue.(memory.Node)
-		if !ok {
-			return nil, errInvalidData
-		}
-	} else {
-		return &pbn, nil
-	}
-
-	if data, hasdata := attrs["data"]; hasdata {
+	if data, hasdata := n["data"]; hasdata {
 		data, ok := data.([]byte)
 		if !ok {
 			return nil, errInvalidData
@@ -115,37 +109,64 @@ func ld2pbNode(in *memory.Node) (*PBNode, error) {
 		pbn.Data = data
 	}
 
-	if links, haslinks := attrs["links"]; haslinks {
-		links, ok := links.([]memory.Node)
+	if ordered_links_node, ok := n["ordered-links"]; ok {
+		var ok bool
+		ordered_links, ok = ordered_links_node.([]interface{})
 		if !ok {
-			return nil, errInvalidLink
+			return nil, errInvalidData
 		}
+	} else {
+		return nil, errInvalidData
+	}
 
-		for _, link := range links {
-			pblink := ld2pbLink(link)
-			if pblink == nil {
-				return nil, fmt.Errorf("%s (%s)", errInvalidLink, link["name"])
-			}
-			pbn.Links = append(pbn.Links, pblink)
+	if named_links_node, ok := n["named-links"]; ok {
+		var ok bool
+		named_links, ok = named_links_node.(memory.Node)
+		if !ok {
+			return nil, errInvalidData
 		}
+	} else {
+		return nil, errInvalidData
+	}
+
+	for n, link := range ordered_links {
+		var pblink *PBLink
+		var linkname string
+		switch link.(type) {
+		case string:
+			linkname = link.(string)
+			linknode := named_links[linkname].(memory.Node)
+			if linknode != nil {
+				pblink = ld2pbLink(linknode)
+			}
+		case memory.Node:
+			pblink = ld2pbLink(link.(memory.Node))
+			linkname = link.(memory.Node)["name"].(string)
+		}
+		if pblink == nil {
+			return nil, fmt.Errorf("%s (#%d %s)", errInvalidLink, n, linkname)
+		}
+		pbn.Links = append(pbn.Links, pblink)
 	}
 	return &pbn, nil
 }
 
 func pb2ldNode(pbn *PBNode, in *memory.Node) {
-	*in = make(memory.Node)
-	n := *in
+	var ordered_links []interface{}
+	var named_links memory.Node = make(memory.Node)
 
-	links := make([]memory.Node, len(pbn.Links))
-	for i, link := range pbn.Links {
-		links[i] = pb2ldLink(link)
-		n[memory.EscapePathComponent(link.GetName())] = links[i]
+	for _, link := range pbn.Links {
+		if _, exists := named_links[link.GetName()]; exists {
+			ordered_links = append(ordered_links, pb2ldLink(link))
+		} else {
+			ordered_links = append(ordered_links, link.GetName())
+			named_links[link.GetName()] = pb2ldLink(link)
+		}
 	}
 
-	n["@attrs"] = memory.Node{
-		"links": links,
-		"data":  pbn.Data,
-	}
+	(*in)["data"] = pbn.GetData()
+	(*in)["named-links"] = named_links
+	(*in)["ordered-links"] = ordered_links
 }
 
 func pb2ldLink(pbl *PBLink) (link memory.Node) {
@@ -156,7 +177,7 @@ func pb2ldLink(pbl *PBLink) (link memory.Node) {
 	}()
 
 	link = make(memory.Node)
-	link["hash"] = pbl.Hash
+	link["link"] = base58.Encode(pbl.Hash)
 	link["name"] = *pbl.Name
 	link["size"] = uint64(*pbl.Tsize)
 	return link
@@ -169,7 +190,7 @@ func ld2pbLink(link memory.Node) (pbl *PBLink) {
 		}
 	}()
 
-	hash := link["hash"].([]byte)
+	hash := base58.Decode(link["hash"].(string))
 	name := link["name"].(string)
 	size := link["size"].(uint64)
 
@@ -178,46 +199,4 @@ func ld2pbLink(link memory.Node) (pbl *PBLink) {
 	pbl.Name = &name
 	pbl.Tsize = &size
 	return pbl
-}
-
-func IsOldProtobufNode(n memory.Node) bool {
-	if len(n) > 2 { // short circuit
-		return false
-	}
-
-	links, hasLinks := n["links"]
-	_, hasData := n["data"]
-
-	switch len(n) {
-	case 2: // must be links and data
-		if !hasLinks || !hasData {
-			return false
-		}
-	case 1: // must be links or data
-		if !(hasLinks || hasData) {
-			return false
-		}
-	default: // nope.
-		return false
-	}
-
-	if len(n) > 2 {
-		return false // only links and data.
-	}
-
-	if hasLinks {
-		links, ok := links.([]memory.Node)
-		if !ok {
-			return false // invalid links.
-		}
-
-		// every link must be a mlink
-		for _, link := range links {
-			if !memory.IsLink(link) {
-				return false
-			}
-		}
-	}
-
-	return true // ok looks like an old protobuf node
 }

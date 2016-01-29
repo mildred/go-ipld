@@ -8,6 +8,7 @@ import (
 	mccbor "github.com/jbenet/go-multicodec/cbor"
 	mcjson "github.com/jbenet/go-multicodec/json"
 	mcmux "github.com/jbenet/go-multicodec/mux"
+	mcproto "github.com/jbenet/go-multicodec/protobuf"
 
 	reader "github.com/ipfs/go-ipld"
 	pb "github.com/ipfs/go-ipld/coding/pb"
@@ -15,7 +16,11 @@ import (
 )
 
 var Header []byte
-var HeaderPath string
+
+const (
+	HeaderPath   = "/mdagv1"
+	ProtobufPath = "/protobuf/msgio"
+)
 
 var StreamCodecs map[string]func(io.Reader) (reader.NodeReader, error)
 
@@ -31,7 +36,6 @@ var muxCodec *mcmux.Multicodec
 var ErrAlreadyRead error = fmt.Errorf("Stream already read: unable to read it a second time")
 
 func init() {
-	HeaderPath = "/mdagv1"
 	Header = mc.Header([]byte(HeaderPath))
 
 	// by default, always encode things as cbor
@@ -50,6 +54,7 @@ func init() {
 		mccbor.HeaderPath: func(r io.Reader) (reader.NodeReader, error) {
 			return NewCBORDecoder(r)
 		},
+		ProtobufPath: DecodeLegacyProtobuf,
 	}
 }
 
@@ -61,46 +66,13 @@ func Multicodec() mc.Multicodec {
 }
 
 func selectCodec(v interface{}, codecs []mc.Multicodec) mc.Multicodec {
-	vn, ok := v.(*memory.Node)
-	if !ok {
-		return nil
-	}
-
-	codecKey, err := codecKey(*vn)
-	if err != nil {
-		return nil
-	}
-
-	for _, c := range codecs {
-		if codecKey == string(mc.HeaderPath(c.Header())) {
-			return c
-		}
-	}
-
 	return nil // no codec
 }
 
-func codecKey(n memory.Node) (string, error) {
-	chdr, ok := (n)[memory.CodecKey]
-	if !ok {
-		// if no codec is defined, use our default codec
-		chdr = defaultCodec
-		if pb.IsOldProtobufNode(n) {
-			chdr = string(pb.Header)
-		}
-	}
-
-	chdrs, ok := chdr.(string)
-	if !ok {
-		// if chdr is not a string, cannot read codec.
-		return "", mc.ErrType
-	}
-
-	return chdrs, nil
-}
-
 func Decode(r io.Reader) (reader.NodeReader, error) {
-	if err := mc.ConsumeHeader(r, mcmux.Header); err != nil {
+	// get multicodec first header, should be mcmux.Header
+	err := mc.ConsumeHeader(r, Header)
+	if err != nil {
 		return nil, err
 	}
 
@@ -114,7 +86,15 @@ func Decode(r io.Reader) (reader.NodeReader, error) {
 
 	fun, ok := StreamCodecs[hdrPath]
 	if !ok {
-		return nil, fmt.Errorf("no codec for %s", hdr)
+		return nil, fmt.Errorf("no codec for %s", hdrPath)
 	}
 	return fun(r)
+}
+
+func DecodeLegacyProtobuf(r io.Reader) (reader.NodeReader, error) {
+	var node memory.Node
+	r = mc.WrapHeaderReader(mcproto.HeaderMsgio, r)
+	r = mc.WrapHeaderReader(pb.Header, r)
+	err := pb.Multicodec().Decoder(r).Decode(&node)
+	return node, err
 }
