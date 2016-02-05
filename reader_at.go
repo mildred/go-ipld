@@ -6,23 +6,6 @@ import (
 	"strings"
 )
 
-// Convert a []interface{} path to a []string path
-// This should only convert array indices to strings, and such are not ambiguous
-// because array indices and object keys cannot be mixed for the same prefix.
-func ToStringPath(anyPath []interface{}) []string {
-	var res []string
-	for _, e := range anyPath {
-		if str, ok := e.(string); ok {
-			res = append(res, str)
-		} else if i, ok := e.(int); ok {
-			res = append(res, fmt.Sprintf("%d", i))
-		} else {
-			res = append(res, fmt.Sprintf("%v", e))
-		}
-	}
-	return res
-}
-
 // A NodeReader that only read elements from a path prefix
 type NodeReaderAt struct {
 	parent NodeReader
