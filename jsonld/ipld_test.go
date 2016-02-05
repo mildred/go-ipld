@@ -1,10 +1,10 @@
 package jsonld
 
 import (
-	"testing"
 	"reflect"
+	"testing"
 
-	ipld "github.com/ipfs/go-ipld"
+	ipld "github.com/ipfs/go-ipld/memory"
 )
 
 type TC struct {
@@ -20,24 +20,24 @@ func init() {
 			"foo": "bar",
 			"bar": []int{1, 2, 3},
 			"baz": ipld.Node{
-				"mlink":  "QmZku7P7KeeHAnwMr6c4HveYfMzmtVinNXzibkiNbfDbPo",
+				"mlink": "QmZku7P7KeeHAnwMr6c4HveYfMzmtVinNXzibkiNbfDbPo",
 			},
 		},
 		jsonld: ipld.Node{
 			"foo": "bar",
 			"bar": []int{1, 2, 3},
 			"baz": ipld.Node{
-				"mlink":  "QmZku7P7KeeHAnwMr6c4HveYfMzmtVinNXzibkiNbfDbPo",
+				"mlink": "QmZku7P7KeeHAnwMr6c4HveYfMzmtVinNXzibkiNbfDbPo",
 			},
 		},
 	}, TC{
 		src: ipld.Node{
-			"foo": "bar",
-			"bar": []int{1, 2, 3},
+			"foo":        "bar",
+			"bar":        []int{1, 2, 3},
 			"@container": "@index",
-			"@index": "links",
+			"@index":     "links",
 			"baz": ipld.Node{
-				"mlink":  "QmZku7P7KeeHAnwMr6c4HveYfMzmtVinNXzibkiNbfDbPo",
+				"mlink": "QmZku7P7KeeHAnwMr6c4HveYfMzmtVinNXzibkiNbfDbPo",
 			},
 		},
 		jsonld: ipld.Node{
@@ -45,7 +45,7 @@ func init() {
 				"foo": "bar",
 				"bar": []int{1, 2, 3},
 				"baz": ipld.Node{
-					"mlink":  "QmZku7P7KeeHAnwMr6c4HveYfMzmtVinNXzibkiNbfDbPo",
+					"mlink": "QmZku7P7KeeHAnwMr6c4HveYfMzmtVinNXzibkiNbfDbPo",
 				},
 			},
 		},
@@ -58,42 +58,41 @@ func init() {
 			"@index":     "files",
 			"@type":      "commit",
 			"@container": "@index",
-			"@context": "/ipfs/QmZku7P7KeeHAnwMr6c4HveYfMzmtVinNXzibkiNbfDbPo/mdag",
+			"@context":   "/ipfs/QmZku7P7KeeHAnwMr6c4HveYfMzmtVinNXzibkiNbfDbPo/mdag",
 			"baz": ipld.Node{
 				"foobar": "barfoo",
 				"mlink":  "QmZku7P7KeeHAnwMr6c4HveYfMzmtVinNXzibkiNbfDbPo",
 			},
 			"\\@bazz": ipld.Node{
-				"mlink":  "QmZku7P7KeeHAnwMr6c4HveYfMzmtVinNXzibkiNbfDbPo",
+				"mlink": "QmZku7P7KeeHAnwMr6c4HveYfMzmtVinNXzibkiNbfDbPo",
 			},
 			"bar/ra\\b": ipld.Node{
-				"mlink":  "QmZku7P7KeeHAnwMr6c4HveYfMzmtVinNXzibkiNbfDbPb",
+				"mlink": "QmZku7P7KeeHAnwMr6c4HveYfMzmtVinNXzibkiNbfDbPb",
 			},
 			"bar": ipld.Node{
 				"@container": "@index",
 				"foo": ipld.Node{
-					"mlink":  "QmZku7P7KeeHAnwMr6c4HveYfMzmtVinNXzibkiNbfDbPa",
+					"mlink": "QmZku7P7KeeHAnwMr6c4HveYfMzmtVinNXzibkiNbfDbPa",
 				},
 			},
 		},
 		jsonld: ipld.Node{
-			"attr": "val",
-			"@type": "commit",
+			"attr":     "val",
+			"@type":    "commit",
 			"@context": "/ipfs/QmZku7P7KeeHAnwMr6c4HveYfMzmtVinNXzibkiNbfDbPo/mdag",
 			"files": ipld.Node{
-				"foo":        "bar",
+				"foo": "bar",
 				"baz": ipld.Node{
 					"foobar": "barfoo",
 					"mlink":  "QmZku7P7KeeHAnwMr6c4HveYfMzmtVinNXzibkiNbfDbPo",
 				},
 				"@bazz": ipld.Node{
-					"mlink":  "QmZku7P7KeeHAnwMr6c4HveYfMzmtVinNXzibkiNbfDbPo",
+					"mlink": "QmZku7P7KeeHAnwMr6c4HveYfMzmtVinNXzibkiNbfDbPo",
 				},
 				"bar/ra\\b": ipld.Node{
-					"mlink":  "QmZku7P7KeeHAnwMr6c4HveYfMzmtVinNXzibkiNbfDbPb",
+					"mlink": "QmZku7P7KeeHAnwMr6c4HveYfMzmtVinNXzibkiNbfDbPb",
 				},
-				"bar": ipld.Node{
-				},
+				"bar": ipld.Node{},
 			},
 		},
 	})

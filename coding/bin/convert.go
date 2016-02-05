@@ -1,14 +1,15 @@
 package main
 
 import (
-	"io/ioutil"
 	"flag"
+	"io/ioutil"
 	"os"
 
-	mc "github.com/jbenet/go-multicodec"
-	pb "github.com/ipfs/go-ipld/coding/pb"
 	ipld "github.com/ipfs/go-ipld"
 	coding "github.com/ipfs/go-ipld/coding"
+	pb "github.com/ipfs/go-ipld/coding/pb"
+	memory "github.com/ipfs/go-ipld/memory"
+	mc "github.com/jbenet/go-multicodec"
 )
 
 var codecs []mc.Multicodec = []mc.Multicodec{
@@ -27,7 +28,7 @@ func codecByName(name string) mc.Multicodec {
 }
 
 func main() {
-	infile  := flag.String("i", "", "Input file")
+	infile := flag.String("i", "", "Input file")
 	outfile := flag.String("o", "", "Output file")
 	codecid := flag.String("c", "", "Multicodec to use")
 	flag.Parse()
@@ -36,7 +37,7 @@ func main() {
 		panic(err)
 	}
 
-	var n ipld.Node
+	var n memory.Node
 	codec := coding.Multicodec()
 
 	if err := mc.Unmarshal(codec, file, &n); err != nil {
@@ -61,10 +62,8 @@ func main() {
 	}
 	defer f.Close()
 
-	_, err = f.Write(encoded);
+	_, err = f.Write(encoded)
 	if err != nil {
 		panic(err)
 	}
 }
-
-

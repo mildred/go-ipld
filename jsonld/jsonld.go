@@ -1,7 +1,8 @@
 package jsonld
 
-import(
-	ipld "github.com/ipfs/go-ipld"
+import (
+	ipld "github.com/ipfs/go-ipld/memory"
+	paths "github.com/ipfs/go-ipld/paths"
 )
 
 const DefaultIndexName string = "@index"
@@ -111,13 +112,12 @@ func ParseNodeIndex(n ipld.Node) (attrs, directives, index ipld.Node, escapedInd
 		} else {
 			if index_container {
 				escapedIndex[key] = val
-				index[ipld.UnescapePathComponent(key)] = val
+				index[paths.UnescapePathComponent(key)] = val
 			} else {
-				attrs[ipld.UnescapePathComponent(key)] = val
+				attrs[paths.UnescapePathComponent(key)] = val
 			}
 		}
 	}
 
 	return
 }
-
