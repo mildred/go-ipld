@@ -24,6 +24,15 @@ var StreamCodecs map[string]func(io.Reader) (stream.NodeReader, error) = map[str
 	},
 }
 
+type Codec int
+
+const (
+	NoCodec       Codec = 0
+	CodecProtobuf Codec = iota
+	CodecCBOR
+	CodecJSON
+)
+
 // defaultCodec is the default applied if user does not specify a codec.
 // Most new objects will never specify a codec. We track the codecs with
 // the object so that multiple people using the same object will continue
@@ -118,4 +127,17 @@ func Decode(r io.Reader) (stream.NodeReader, error) {
 		return nil, fmt.Errorf("no codec for %s", hdr)
 	}
 	return fun(r)
+}
+
+func Encode(codec Codec, w io.Writer, node memory.Node) error {
+	switch codec {
+	case CodecCBOR:
+		return cbor.Encode(w, node)
+	case CodecJSON:
+		return json.Encode(w, node)
+	case CodecProtobuf:
+		return fmt.Errorf("Protocol Buffer codec is not writeable")
+	default:
+		return fmt.Errorf("Unknown codec %v", codec)
+	}
 }
