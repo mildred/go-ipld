@@ -29,6 +29,7 @@ const (
 	CodecProtobuf Codec = iota
 	CodecCBOR
 	CodecJSON
+	CodecCBORNoTags
 )
 
 func init() {
@@ -39,6 +40,9 @@ func init() {
 			return json.NewJSONDecoder(r)
 		},
 		cbor.HeaderPath: func(r io.Reader) (stream.NodeReader, error) {
+			return cbor.NewCBORDecoder(r)
+		},
+		cbor.HeaderWithTagsPath: func(r io.Reader) (stream.NodeReader, error) {
 			return cbor.NewCBORDecoder(r)
 		},
 		pb.MsgIOHeaderPath: func(r io.Reader) (stream.NodeReader, error) {
@@ -79,8 +83,10 @@ func DecodeLegacyProtobufBytes(data []byte) (stream.NodeReader, error) {
 
 func EncodeRaw(codec Codec, w io.Writer, node memory.Node) error {
 	switch codec {
+	case CodecCBORNoTags:
+		return cbor.Encode(w, node, false)
 	case CodecCBOR:
-		return cbor.Encode(w, node)
+		return cbor.Encode(w, node, true)
 	case CodecJSON:
 		return json.Encode(w, node)
 	case CodecProtobuf:

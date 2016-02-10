@@ -5,18 +5,23 @@ import (
 	"io"
 	"math/big"
 
+	links "github.com/ipfs/go-ipld/links"
 	reader "github.com/ipfs/go-ipld/stream"
+	ma "github.com/jbenet/go-multiaddr"
 	mc "github.com/jbenet/go-multicodec"
 	cbor "github.com/whyrusleeping/cbor/go"
 )
 
 const HeaderPath string = "/cbor"
+const HeaderWithTagsPath string = "/cbor/ipld-tagsv1"
 
 var Header []byte
+var HeaderWithTags []byte
 var ErrAlreadyRead error = fmt.Errorf("Stream already read: unable to read it a second time")
 
 func init() {
 	Header = mc.Header([]byte(HeaderPath))
+	HeaderWithTags = mc.Header([]byte(HeaderWithTagsPath))
 }
 
 type CBORDecoder struct {
@@ -26,7 +31,8 @@ type CBORDecoder struct {
 
 type cborParser struct {
 	reader.BaseReader
-	decoder *cbor.Decoder
+	decoder  *cbor.Decoder
+	tagStack []bool
 }
 
 func NewCBORDecoder(r io.Reader) (*CBORDecoder, error) {
@@ -56,7 +62,7 @@ func (d *CBORDecoder) Read(cb reader.ReadFun) error {
 		}
 	}
 	dec := cbor.NewDecoder(d.r)
-	return dec.DecodeAny(&cborParser{reader.CreateBaseReader(cb), dec})
+	return dec.DecodeAny(&cborParser{reader.CreateBaseReader(cb), dec, []bool{false}})
 }
 
 func (p *cborParser) Prepare() error {
@@ -64,6 +70,24 @@ func (p *cborParser) Prepare() error {
 }
 
 func (p *cborParser) SetBytes(buf []byte) error {
+	if p.tagStack[len(p.tagStack)-1] {
+		maddr, err := ma.NewMultiaddrBytes(buf)
+		if err != nil {
+			return err
+		}
+
+		err = p.ExecCallback(reader.TokenKey, links.LinkKey)
+		if err != nil {
+			p.Descope()
+			return err
+		}
+		p.PushPath(links.LinkKey)
+		err = p.ExecCallback(reader.TokenValue, maddr.String())
+		p.Descope()
+		p.PopPath()
+		p.Descope()
+		return err
+	}
 	err := p.ExecCallback(reader.TokenValue, buf)
 	p.Descope()
 	return err
@@ -112,12 +136,29 @@ func (p *cborParser) SetBool(b bool) error {
 }
 
 func (p *cborParser) SetString(s string) error {
+	if p.tagStack[len(p.tagStack)-1] {
+		err := p.ExecCallback(reader.TokenKey, links.LinkKey)
+		if err != nil {
+			p.Descope()
+			return err
+		}
+		p.PushPath(links.LinkKey)
+		err = p.ExecCallback(reader.TokenValue, s)
+		p.Descope()
+		p.PopPath()
+		p.Descope()
+		return err
+	}
 	err := p.ExecCallback(reader.TokenValue, s)
 	p.Descope()
 	return err
 }
 
 func (p *cborParser) CreateMap() (cbor.DecodeValueMap, error) {
+	p.tagStack = append(p.tagStack, false)
+	if p.tagStack[len(p.tagStack)-2] {
+		return p, nil
+	}
 	return p, p.ExecCallback(reader.TokenNode, nil)
 }
 
@@ -138,17 +179,29 @@ func (p *cborParser) SetMap(key, val cbor.DecodeValue) error {
 }
 
 func (p *cborParser) EndMap() error {
+	p.tagStack = p.tagStack[:len(p.tagStack)-1]
+	if p.tagStack[len(p.tagStack)-1] {
+		return nil
+	}
+
 	err := p.ExecCallback(reader.TokenEndNode, nil)
 	p.Descope()
 	p.Descope()
 	return err
 }
 
-func (p *cborParser) CreateArray(len int) (cbor.DecodeValueArray, error) {
+func (p *cborParser) CreateArray(length int) (cbor.DecodeValueArray, error) {
+	if p.tagStack[len(p.tagStack)-1] {
+		return p, nil
+	}
 	return p, p.ExecCallback(reader.TokenArray, nil)
 }
 
 func (p *cborParser) GetArrayValue(index uint64) (cbor.DecodeValue, error) {
+	if p.tagStack[len(p.tagStack)-1] {
+		return p, nil
+	}
+	p.tagStack = append(p.tagStack, false)
 	err := p.ExecCallback(reader.TokenIndex, index)
 	p.Descope()
 	p.PushPath(index)
@@ -156,11 +209,17 @@ func (p *cborParser) GetArrayValue(index uint64) (cbor.DecodeValue, error) {
 }
 
 func (p *cborParser) AppendArray(val cbor.DecodeValue) error {
+	if p.tagStack[len(p.tagStack)-1] {
+		return nil
+	}
 	p.PopPath()
 	return nil
 }
 
 func (p *cborParser) EndArray() error {
+	if p.tagStack[len(p.tagStack)-1] {
+		return nil
+	}
 	err := p.ExecCallback(reader.TokenEndArray, nil)
 	p.Descope()
 	p.Descope()
@@ -168,9 +227,20 @@ func (p *cborParser) EndArray() error {
 }
 
 func (p *cborParser) CreateTag(tag uint64, decoder cbor.TagDecoder) (cbor.DecodeValue, interface{}, error) {
+	if tag == TagIPLDLink {
+		p.tagStack = append(p.tagStack, true)
+		return p, nil, p.ExecCallback(reader.TokenNode, nil)
+	}
 	return p, nil, nil
 }
 
 func (p *cborParser) SetTag(tag uint64, decval cbor.DecodeValue, decoder cbor.TagDecoder, val interface{}) error {
+	if tag == TagIPLDLink {
+		err := p.ExecCallback(reader.TokenEndNode, nil)
+		p.Descope()
+		p.Descope()
+		p.tagStack = p.tagStack[:len(p.tagStack)-1]
+		return err
+	}
 	return nil
 }
