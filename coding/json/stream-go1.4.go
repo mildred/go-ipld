@@ -6,6 +6,7 @@ import (
 	"github.com/ipfs/go-ipld/Godeps/_workspace/src/github.com/golang/go/src/encoding/json"
 	"fmt"
 	"io"
+	"sync"
 
 	reader "github.com/ipfs/go-ipld/stream"
 	mc "github.com/jbenet/go-multicodec"
@@ -24,8 +25,9 @@ func init() {
 }
 
 type JSONDecoder struct {
-	r   io.Reader
-	pos int64
+	r    io.ReadSeeker
+	pos  int64
+	lock sync.Mutex
 }
 
 type jsonParser struct {
@@ -33,26 +35,24 @@ type jsonParser struct {
 	decoder *json.Decoder
 }
 
-func NewJSONDecoder(r io.Reader) (*JSONDecoder, error) {
-	s := r.(io.Seeker)
-	if s == nil {
-		return &JSONDecoder{r, -1}, nil
-	} else {
-		offset, err := s.Seek(0, 1)
-		if err != nil {
-			return nil, err
-		}
-		return &JSONDecoder{r, offset}, nil
+func NewJSONDecoder(r io.ReadSeeker) (*JSONDecoder, error) {
+	offset, err := r.Seek(0, 1)
+	if err != nil {
+		return nil, err
 	}
+	return &JSONDecoder{r, offset, sync.Mutex{}}, nil
 }
 
 func (d *JSONDecoder) Read(cb reader.ReadFun) error {
+	d.lock.Lock()
+	defer d.lock.Unlock()
+
 	if d.pos == -2 {
 		return ErrAlreadyRead
 	} else if d.pos == -1 {
 		d.pos = -2
 	} else {
-		newoffset, err := d.r.(io.Seeker).Seek(d.pos, 0)
+		newoffset, err := d.r.Seek(d.pos, 0)
 		if err != nil {
 			return err
 		} else if newoffset != d.pos {

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"math/big"
+	"sync"
 
 	links "github.com/ipfs/go-ipld/links"
 	reader "github.com/ipfs/go-ipld/stream"
@@ -25,8 +26,9 @@ func init() {
 }
 
 type CBORDecoder struct {
-	r   io.ReadSeeker
-	pos int64
+	r    io.ReadSeeker
+	pos  int64
+	lock sync.Mutex
 }
 
 type cborParser struct {
@@ -40,10 +42,13 @@ func NewCBORDecoder(r io.ReadSeeker) (*CBORDecoder, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &CBORDecoder{r, offset}, nil
+	return &CBORDecoder{r, offset, sync.Mutex{}}, nil
 }
 
 func (d *CBORDecoder) Read(cb reader.ReadFun) error {
+	d.lock.Lock()
+	defer d.lock.Unlock()
+
 	if d.pos == -2 {
 		return ErrAlreadyRead
 	} else if d.pos == -1 {
