@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"sync"
 
 	reader "github.com/ipfs/go-ipld/stream"
 	mc "github.com/jbenet/go-multicodec"
@@ -24,8 +25,9 @@ func init() {
 }
 
 type JSONDecoder struct {
-	r   io.ReadSeeker
-	pos int64
+	r    io.ReadSeeker
+	pos  int64
+	lock sync.Mutex
 }
 
 type jsonParser struct {
@@ -38,10 +40,13 @@ func NewJSONDecoder(r io.ReadSeeker) (*JSONDecoder, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &JSONDecoder{r, offset}, nil
+	return &JSONDecoder{r, offset, sync.Mutex{}}, nil
 }
 
 func (d *JSONDecoder) Read(cb reader.ReadFun) error {
+	d.lock.Lock()
+	defer d.lock.Unlock()
+
 	if d.pos == -2 {
 		return ErrAlreadyRead
 	} else if d.pos == -1 {
