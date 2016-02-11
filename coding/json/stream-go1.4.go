@@ -1,9 +1,9 @@
-// +build go1.5
+// +build !go1.5
 
 package json
 
 import (
-	"encoding/json"
+	"github.com/ipfs/go-ipld/Godeps/_workspace/src/github.com/golang/go/src/encoding/json"
 	"fmt"
 	"io"
 

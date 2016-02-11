@@ -1,0 +1,14 @@
+{
+	"ImportPath": "github.com/ipfs/go-ipld",
+	"GoVersion": "go1.5",
+	"Packages": [
+		"./coding/json"
+	],
+	"Deps": [
+		{
+			"ImportPath": "github.com/golang/go/src/encoding/json",
+			"Comment": "go1.5.1",
+			"Rev": "f2e4c8b5fb3660d793b2c545ef207153db0a34b1"
+		}
+	]
+}
