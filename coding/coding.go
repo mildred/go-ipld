@@ -20,8 +20,6 @@ const (
 	HeaderPath = "/mdagv1"
 )
 
-var StreamCodecs map[string]func(io.Reader) (stream.NodeReader, error)
-
 type Codec int
 
 const (
@@ -32,26 +30,28 @@ const (
 	CodecCBORNoTags
 )
 
+var StreamCodecs map[string]func(io.ReadSeeker) (stream.NodeReader, error)
+
 func init() {
 	Header = mc.Header([]byte(HeaderPath))
 
-	StreamCodecs = map[string]func(io.Reader) (stream.NodeReader, error){
-		json.HeaderPath: func(r io.Reader) (stream.NodeReader, error) {
+	StreamCodecs = map[string]func(io.ReadSeeker) (stream.NodeReader, error){
+		json.HeaderPath: func(r io.ReadSeeker) (stream.NodeReader, error) {
 			return json.NewJSONDecoder(r)
 		},
-		cbor.HeaderPath: func(r io.Reader) (stream.NodeReader, error) {
+		cbor.HeaderPath: func(r io.ReadSeeker) (stream.NodeReader, error) {
 			return cbor.NewCBORDecoder(r)
 		},
-		cbor.HeaderWithTagsPath: func(r io.Reader) (stream.NodeReader, error) {
+		cbor.HeaderWithTagsPath: func(r io.ReadSeeker) (stream.NodeReader, error) {
 			return cbor.NewCBORDecoder(r)
 		},
-		pb.MsgIOHeaderPath: func(r io.Reader) (stream.NodeReader, error) {
+		pb.MsgIOHeaderPath: func(r io.ReadSeeker) (stream.NodeReader, error) {
 			return pb.Decode(mc.WrapHeaderReader(pb.MsgIOHeader, r))
 		},
 	}
 }
 
-func Decode(r io.Reader) (stream.NodeReader, error) {
+func Decode(r io.ReadSeeker) (stream.NodeReader, error) {
 	// get multicodec first header, should be mcmux.Header
 	err := mc.ConsumeHeader(r, Header)
 	if err != nil {

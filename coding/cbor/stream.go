@@ -25,7 +25,7 @@ func init() {
 }
 
 type CBORDecoder struct {
-	r   io.Reader
+	r   io.ReadSeeker
 	pos int64
 }
 
@@ -35,17 +35,12 @@ type cborParser struct {
 	tagStack []bool
 }
 
-func NewCBORDecoder(r io.Reader) (*CBORDecoder, error) {
-	s := r.(io.Seeker)
-	if s == nil {
-		return &CBORDecoder{r, -1}, nil
-	} else {
-		offset, err := s.Seek(0, 1)
-		if err != nil {
-			return nil, err
-		}
-		return &CBORDecoder{r, offset}, nil
+func NewCBORDecoder(r io.ReadSeeker) (*CBORDecoder, error) {
+	offset, err := r.Seek(0, 1)
+	if err != nil {
+		return nil, err
 	}
+	return &CBORDecoder{r, offset}, nil
 }
 
 func (d *CBORDecoder) Read(cb reader.ReadFun) error {
@@ -54,7 +49,7 @@ func (d *CBORDecoder) Read(cb reader.ReadFun) error {
 	} else if d.pos == -1 {
 		d.pos = -2
 	} else {
-		newoffset, err := d.r.(io.Seeker).Seek(d.pos, 0)
+		newoffset, err := d.r.Seek(d.pos, 0)
 		if err != nil {
 			return err
 		} else if newoffset != d.pos {
