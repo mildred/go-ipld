@@ -7,9 +7,12 @@ import (
 	"testing"
 
 	memory "github.com/ipfs/go-ipld/memory"
+	reader "github.com/ipfs/go-ipld/stream"
+	rt "github.com/ipfs/go-ipld/stream/test"
 
 	mc "github.com/jbenet/go-multicodec"
 	mctest "github.com/jbenet/go-multicodec/test"
+	assrt "github.com/mildred/assrt"
 )
 
 var codedFiles map[string][]byte = map[string][]byte{
@@ -146,4 +149,37 @@ func TestCodecsDecodeEncode(t *testing.T) {
 			t.Log(encoded)
 		}
 	}
+}
+
+func TestStream(t *testing.T) {
+	a := assrt.NewAssert(t)
+	json, err := Decode(bytes.NewReader(codedFiles["json.testfile"]))
+	a.MustNil(err)
+
+	t.Logf("Reading json.testfile")
+	rt.CheckReader(t, json, []rt.Callback{
+		rt.Callback{[]interface{}{}, reader.TokenNode, nil},
+		rt.Callback{[]interface{}{}, reader.TokenKey, "@codec"},
+		rt.Callback{[]interface{}{"@codec"}, reader.TokenValue, "/json"},
+		rt.Callback{[]interface{}{}, reader.TokenKey, "abc"},
+		rt.Callback{[]interface{}{"abc"}, reader.TokenNode, nil},
+		rt.Callback{[]interface{}{"abc"}, reader.TokenKey, "mlink"},
+		rt.Callback{[]interface{}{"abc", "mlink"}, reader.TokenValue, "QmXg9Pp2ytZ14xgmQjYEiHjVjMFXzCVVEcRTWJBmLgR39V"},
+		rt.Callback{[]interface{}{"abc"}, reader.TokenEndNode, nil},
+		rt.Callback{[]interface{}{}, reader.TokenEndNode, nil},
+	})
+
+	cbor, err := Decode(bytes.NewReader(codedFiles["cbor.testfile"]))
+	a.MustNil(err)
+
+	t.Logf("Reading cbor.testfile")
+	rt.CheckReader(t, cbor, []rt.Callback{
+		rt.Callback{[]interface{}{}, reader.TokenNode, nil},
+		rt.Callback{[]interface{}{}, reader.TokenKey, "abc"},
+		rt.Callback{[]interface{}{"abc"}, reader.TokenNode, nil},
+		rt.Callback{[]interface{}{"abc"}, reader.TokenKey, "mlink"},
+		rt.Callback{[]interface{}{"abc", "mlink"}, reader.TokenValue, "QmXg9Pp2ytZ14xgmQjYEiHjVjMFXzCVVEcRTWJBmLgR39V"},
+		rt.Callback{[]interface{}{"abc"}, reader.TokenEndNode, nil},
+		rt.Callback{[]interface{}{}, reader.TokenEndNode, nil},
+	})
 }

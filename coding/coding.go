@@ -1,14 +1,28 @@
 package ipfsld
 
 import (
+	"fmt"
+	"io"
+
+	cbor "github.com/ipfs/go-ipld/coding/cbor"
+	json "github.com/ipfs/go-ipld/coding/json"
 	mc "github.com/jbenet/go-multicodec"
-	mccbor "github.com/jbenet/go-multicodec/cbor"
 	mcmux "github.com/jbenet/go-multicodec/mux"
 
 	ipld "github.com/ipfs/go-ipld"
 	pb "github.com/ipfs/go-ipld/coding/pb"
 	memory "github.com/ipfs/go-ipld/memory"
+	stream "github.com/ipfs/go-ipld/stream"
 )
+
+var StreamCodecs map[string]func(io.Reader) (stream.NodeReader, error) = map[string]func(io.Reader) (stream.NodeReader, error){
+	json.HeaderPath: func(r io.Reader) (stream.NodeReader, error) {
+		return json.NewJSONDecoder(r)
+	},
+	cbor.HeaderPath: func(r io.Reader) (stream.NodeReader, error) {
+		return cbor.NewCBORDecoder(r)
+	},
+}
 
 // defaultCodec is the default applied if user does not specify a codec.
 // Most new objects will never specify a codec. We track the codecs with
@@ -20,13 +34,24 @@ var defaultCodec string
 var muxCodec *mcmux.Multicodec
 
 func init() {
+
 	// by default, always encode things as cbor
-	defaultCodec = string(mc.HeaderPath(mccbor.Header))
+	defaultCodec = string(mc.HeaderPath(cbor.Header))
+
 	muxCodec = mcmux.MuxMulticodec([]mc.Multicodec{
 		CborMulticodec(),
 		JsonMulticodec(),
 		pb.Multicodec(),
 	}, selectCodec)
+
+	StreamCodecs = map[string]func(io.Reader) (stream.NodeReader, error){
+		json.HeaderPath: func(r io.Reader) (stream.NodeReader, error) {
+			return json.NewJSONDecoder(r)
+		},
+		cbor.HeaderPath: func(r io.Reader) (stream.NodeReader, error) {
+			return cbor.NewCBORDecoder(r)
+		},
+	}
 }
 
 // Multicodec returns a muxing codec that marshals to
@@ -73,4 +98,24 @@ func codecKey(n memory.Node) (string, error) {
 	}
 
 	return chdrs, nil
+}
+
+func Decode(r io.Reader) (stream.NodeReader, error) {
+	if err := mc.ConsumeHeader(r, mcmux.Header); err != nil {
+		return nil, err
+	}
+
+	// get next header, to select codec
+	hdr, err := mc.ReadHeader(r)
+	if err != nil {
+		return nil, err
+	}
+
+	hdrPath := string(mc.HeaderPath(hdr))
+
+	fun, ok := StreamCodecs[hdrPath]
+	if !ok {
+		return nil, fmt.Errorf("no codec for %s", hdr)
+	}
+	return fun(r)
 }
