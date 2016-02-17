@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"sort"
 
-	ipld "github.com/ipfs/go-ipld/stream"
+	stream "github.com/ipfs/go-ipld/stream"
 	mh "github.com/jbenet/go-multihash"
 )
 
@@ -189,18 +189,18 @@ func LinkCast(v interface{}) (l Link, ok bool) {
 	return l, true
 }
 
-func (n Node) Read(fun ipld.ReadFun) error {
+func (n Node) Read(fun stream.ReadFun) error {
 	err := read(n, fun, []interface{}{})
-	if err == ipld.NodeReadAbort {
+	if err == stream.NodeReadAbort {
 		err = nil
 	}
 	return err
 }
 
-func read(curr interface{}, fun ipld.ReadFun, path []interface{}) error {
+func read(curr interface{}, fun stream.ReadFun, path []interface{}) error {
 	if nc, ok := curr.(Node); ok { // it's a node!
-		err := fun(path, ipld.TokenNode, nil)
-		if err == ipld.NodeReadSkip {
+		err := fun(path, stream.TokenNode, nil)
+		if err == stream.NodeReadSkip {
 			return nil
 		} else if err != nil {
 			return err
@@ -215,8 +215,8 @@ func read(curr interface{}, fun ipld.ReadFun, path []interface{}) error {
 		sort.Strings(keys)
 
 		for _, k := range keys {
-			err := fun(path, ipld.TokenKey, k)
-			if err == ipld.NodeReadSkip {
+			err := fun(path, stream.TokenKey, k)
+			if err == stream.NodeReadSkip {
 				return nil
 			} else if err != nil {
 				return err
@@ -229,24 +229,24 @@ func read(curr interface{}, fun ipld.ReadFun, path []interface{}) error {
 			}
 		}
 
-		err = fun(path, ipld.TokenEndNode, nil)
-		if err == ipld.NodeReadSkip {
+		err = fun(path, stream.TokenEndNode, nil)
+		if err == stream.NodeReadSkip {
 			return nil
 		} else if err != nil {
 			return err
 		}
 
 	} else if sc, ok := curr.([]interface{}); ok { // it's a slice!
-		err := fun(path, ipld.TokenArray, nil)
-		if err == ipld.NodeReadSkip {
+		err := fun(path, stream.TokenArray, nil)
+		if err == stream.NodeReadSkip {
 			return nil
 		} else if err != nil {
 			return err
 		}
 
 		for i, v := range sc {
-			err := fun(path, ipld.TokenIndex, i)
-			if err == ipld.NodeReadSkip {
+			err := fun(path, stream.TokenIndex, i)
+			if err == stream.NodeReadSkip {
 				return nil
 			} else if err != nil {
 				return err
@@ -259,16 +259,16 @@ func read(curr interface{}, fun ipld.ReadFun, path []interface{}) error {
 			}
 		}
 
-		err = fun(path, ipld.TokenEndArray, nil)
-		if err == ipld.NodeReadSkip {
+		err = fun(path, stream.TokenEndArray, nil)
+		if err == stream.NodeReadSkip {
 			return nil
 		} else if err != nil {
 			return err
 		}
 
 	} else {
-		err := fun(path, ipld.TokenValue, curr)
-		if err == ipld.NodeReadSkip {
+		err := fun(path, stream.TokenValue, curr)
+		if err == stream.NodeReadSkip {
 			return nil
 		} else if err != nil {
 			return err
