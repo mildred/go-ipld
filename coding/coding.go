@@ -1,28 +1,26 @@
 package coding
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 
 	cbor "github.com/ipfs/go-ipld/coding/cbor"
 	json "github.com/ipfs/go-ipld/coding/json"
-	mc "github.com/jbenet/go-multicodec"
-	mcmux "github.com/jbenet/go-multicodec/mux"
-
-	ipld "github.com/ipfs/go-ipld"
 	pb "github.com/ipfs/go-ipld/coding/pb"
+
 	memory "github.com/ipfs/go-ipld/memory"
 	stream "github.com/ipfs/go-ipld/stream"
+	mc "github.com/jbenet/go-multicodec"
 )
 
-var StreamCodecs map[string]func(io.Reader) (stream.NodeReader, error) = map[string]func(io.Reader) (stream.NodeReader, error){
-	json.HeaderPath: func(r io.Reader) (stream.NodeReader, error) {
-		return json.NewJSONDecoder(r)
-	},
-	cbor.HeaderPath: func(r io.Reader) (stream.NodeReader, error) {
-		return cbor.NewCBORDecoder(r)
-	},
-}
+var Header []byte
+
+const (
+	HeaderPath = "/mdagv1"
+)
+
+var StreamCodecs map[string]func(io.Reader) (stream.NodeReader, error)
 
 type Codec int
 
@@ -33,25 +31,8 @@ const (
 	CodecJSON
 )
 
-// defaultCodec is the default applied if user does not specify a codec.
-// Most new objects will never specify a codec. We track the codecs with
-// the object so that multiple people using the same object will continue
-// to marshal using the same codec. the only reason this is important is
-// that the hashes must be the same.
-var defaultCodec string
-
-var muxCodec *mcmux.Multicodec
-
 func init() {
-
-	// by default, always encode things as cbor
-	defaultCodec = string(mc.HeaderPath(cbor.Header))
-
-	muxCodec = mcmux.MuxMulticodec([]mc.Multicodec{
-		CborMulticodec(),
-		JsonMulticodec(),
-		pb.Multicodec(),
-	}, selectCodec)
+	Header = mc.Header([]byte(HeaderPath))
 
 	StreamCodecs = map[string]func(io.Reader) (stream.NodeReader, error){
 		json.HeaderPath: func(r io.Reader) (stream.NodeReader, error) {
@@ -60,57 +41,16 @@ func init() {
 		cbor.HeaderPath: func(r io.Reader) (stream.NodeReader, error) {
 			return cbor.NewCBORDecoder(r)
 		},
+		pb.MsgIOHeaderPath: func(r io.Reader) (stream.NodeReader, error) {
+			return pb.Decode(mc.WrapHeaderReader(pb.MsgIOHeader, r))
+		},
 	}
-}
-
-// Multicodec returns a muxing codec that marshals to
-// whatever codec makes sense depending on what information
-// the IPLD object itself carries
-func Multicodec() mc.Multicodec {
-	return muxCodec
-}
-
-func selectCodec(v interface{}, codecs []mc.Multicodec) mc.Multicodec {
-	vn, ok := v.(*memory.Node)
-	if !ok {
-		return nil
-	}
-
-	codecKey, err := codecKey(*vn)
-	if err != nil {
-		return nil
-	}
-
-	for _, c := range codecs {
-		if codecKey == string(mc.HeaderPath(c.Header())) {
-			return c
-		}
-	}
-
-	return nil // no codec
-}
-
-func codecKey(n memory.Node) (string, error) {
-	chdr, ok := (n)[ipld.CodecKey]
-	if !ok {
-		// if no codec is defined, use our default codec
-		chdr = defaultCodec
-		if pb.IsOldProtobufNode(n) {
-			chdr = string(pb.Header)
-		}
-	}
-
-	chdrs, ok := chdr.(string)
-	if !ok {
-		// if chdr is not a string, cannot read codec.
-		return "", mc.ErrType
-	}
-
-	return chdrs, nil
 }
 
 func Decode(r io.Reader) (stream.NodeReader, error) {
-	if err := mc.ConsumeHeader(r, mcmux.Header); err != nil {
+	// get multicodec first header, should be mcmux.Header
+	err := mc.ConsumeHeader(r, Header)
+	if err != nil {
 		return nil, err
 	}
 
@@ -124,20 +64,39 @@ func Decode(r io.Reader) (stream.NodeReader, error) {
 
 	fun, ok := StreamCodecs[hdrPath]
 	if !ok {
-		return nil, fmt.Errorf("no codec for %s", hdr)
+		return nil, fmt.Errorf("no codec for %s", hdrPath)
 	}
 	return fun(r)
 }
 
-func Encode(codec Codec, w io.Writer, node memory.Node) error {
+func DecodeBytes(data []byte) (stream.NodeReader, error) {
+	return Decode(bytes.NewReader(data))
+}
+
+func DecodeLegacyProtobufBytes(data []byte) (stream.NodeReader, error) {
+	return pb.RawDecode(data)
+}
+
+func EncodeRaw(codec Codec, w io.Writer, node memory.Node) error {
 	switch codec {
 	case CodecCBOR:
 		return cbor.Encode(w, node)
 	case CodecJSON:
 		return json.Encode(w, node)
 	case CodecProtobuf:
-		return fmt.Errorf("Protocol Buffer codec is not writeable")
+		return pb.Encode(w, node, true)
 	default:
 		return fmt.Errorf("Unknown codec %v", codec)
 	}
+}
+
+func Encode(codec Codec, w io.Writer, node memory.Node) error {
+	w.Write(Header)
+	return EncodeRaw(codec, w, node)
+}
+
+func EncodeBytes(codec Codec, node memory.Node) ([]byte, error) {
+	var buf bytes.Buffer
+	err := Encode(codec, &buf, node)
+	return buf.Bytes(), err
 }
