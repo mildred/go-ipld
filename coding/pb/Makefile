@@ -1,10 +1,13 @@
 PB = $(wildcard *.proto)
 GO = $(PB:.proto=.pb.go)
 
-all: $(GO) test.pb
+all: $(GO) ipld.pb.go
 
 %.pb.go: %.proto
-	protoc --gogo_out=. --proto_path=../../../../../../:/usr/local/opt/protobuf/include:. $<
+	go get github.com/gogo/protobuf/protoc-gen-gogo
+	go get github.com/gogo/protobuf/protoc-gen-gofast
+	protoc --gogo_out=. --proto_path=../../../../../:/usr/include:/usr/local/opt/protobuf/include:. $<
+	patch $@ <$@.patch
 
 clean:
 	rm -f *.pb.go

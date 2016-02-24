@@ -3,6 +3,7 @@ package coding
 import (
 	"bytes"
 	"io/ioutil"
+	"os"
 	"testing"
 
 	links "github.com/ipfs/go-ipld/links"
@@ -81,6 +82,16 @@ func TestCodecsEncodeDecode(t *testing.T) {
 			t.Log(string(testfile))
 			t.Log(outData)
 			t.Log(string(outData))
+			f, err := os.Create(fname + ".error")
+			if err != nil {
+				t.Error(err)
+			} else {
+				defer f.Close()
+				_, err := f.Write(outData)
+				if err != nil {
+					t.Error(err)
+				}
+			}
 		}
 	}
 }
