@@ -1,8 +1,9 @@
-package links
+package ipld
 
 import (
 	"testing"
 
+	links "github.com/ipfs/go-ipld/links"
 	memory "github.com/ipfs/go-ipld/memory"
 	mh "github.com/jbenet/go-multihash"
 	assrt "github.com/mildred/assrt"
@@ -39,15 +40,15 @@ func TestParsing(t *testing.T) {
 
 	n := memory.Node{
 		"foo": memory.Node{
-			LinkKey: h1,
-			"size":  3,
+			links.LinkKey: h1,
+			"size":        3,
 		},
 		"bar": memory.Node{
 			"baz": memory.Node{
-				LinkKey: h2,
-				"size":  42,
+				links.LinkKey: h2,
+				"size":        42,
 				"boo": memory.Node{
-					LinkKey: h3,
+					links.LinkKey: h3,
 				},
 			},
 		},
@@ -78,7 +79,7 @@ func TestParsing(t *testing.T) {
 }
 
 type Link2 struct {
-	BaseLink
+	links.BaseLink
 	Size uint64 `ipld:"key:size"`
 }
 
@@ -87,28 +88,28 @@ func TestParsing2(t *testing.T) {
 
 	n := memory.Node{
 		"foo": memory.Node{
-			LinkKey: h1,
-			"size":  3,
+			links.LinkKey: h1,
+			"size":        3,
 		},
 		"bar": memory.Node{
 			"baz": memory.Node{
-				LinkKey: h2,
-				"size":  42,
+				links.LinkKey: h2,
+				"size":        42,
 				"boo": memory.Node{
-					LinkKey: h3,
+					links.LinkKey: h3,
 				},
 			},
 		},
 	}
 
-	var links []Link2
+	var convlinks []Link2
 
-	err := ReadLinks(n, &links)
+	err := ReadLinks(n, &convlinks)
 	a.Nil(err)
 
 	a.Equal([]Link2{
 		Link2{
-			BaseLink: BaseLink{
+			BaseLink: links.BaseLink{
 				Name:       "boo",
 				Hash:       mh3,
 				Link:       h3,
@@ -118,7 +119,7 @@ func TestParsing2(t *testing.T) {
 			Size: 0,
 		},
 		Link2{
-			BaseLink: BaseLink{
+			BaseLink: links.BaseLink{
 				Name:       "baz",
 				Hash:       mh2,
 				Link:       h2,
@@ -128,7 +129,7 @@ func TestParsing2(t *testing.T) {
 			Size: 42,
 		},
 		Link2{
-			BaseLink: BaseLink{
+			BaseLink: links.BaseLink{
 				Name:       "foo",
 				Hash:       mh1,
 				Link:       h1,
@@ -137,5 +138,5 @@ func TestParsing2(t *testing.T) {
 			},
 			Size: 3,
 		},
-	}, links)
+	}, convlinks)
 }

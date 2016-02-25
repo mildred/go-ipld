@@ -1,33 +1,13 @@
-package links
+package ipld
 
 import (
 	"fmt"
 	"reflect"
 
+	links "github.com/ipfs/go-ipld/links"
 	stream "github.com/ipfs/go-ipld/stream"
 	mh "github.com/jbenet/go-multihash"
 )
-
-const (
-	LinkKey = "@link"
-)
-
-// Base type to be inherited to form Link types.
-type BaseLink struct {
-	Hash       mh.Multihash  `ipld:"multihash"`
-	Link       string        `ipld:"link"`
-	Name       string        `ipld:"name"`
-	Path       []interface{} `ipld:"path"`
-	StringPath []string      `ipld:"path"`
-}
-
-type SimpleLink struct {
-	Link string `ipld:"link"`
-}
-
-type SimpleHashLink struct {
-	Hash mh.Multihash `ipld:"multihash"`
-}
 
 // Read the hash of an IPLD link.
 func ReadLinkPath(value interface{}) (mh.Multihash, error) {
@@ -76,6 +56,9 @@ type fields struct {
 var mhType reflect.Type = reflect.TypeOf(mh.Multihash{})
 
 func (f *fields) mapFields(lt reflect.Type, path []int) {
+	if f.attrs == nil {
+		f.attrs = make(map[string][]int)
+	}
 	for i := 0; i < lt.NumField(); i++ {
 		lf := lt.Field(i)
 		curPath := append(path, i)
@@ -117,8 +100,9 @@ func (f *fields) mapFields(lt reflect.Type, path []int) {
 //   and the type annotation must be `ipld:"key:<extra key>"`
 //
 // Fields must be publicly accessible.
-func ReadLinks(r stream.NodeReader, links interface{}) error {
-	rv := reflect.ValueOf(links)
+func ReadLinks(r stream.NodeReader, reslinks interface{}) error {
+	rv := reflect.ValueOf(reslinks)
+
 	if rv.Kind() != reflect.Ptr {
 		return fmt.Errorf("Expected slice pointer to Link type: found non pointer type %s", rv.Type().String())
 	}
@@ -134,7 +118,6 @@ func ReadLinks(r stream.NodeReader, links interface{}) error {
 	}
 
 	var f fields
-	f.attrs = make(map[string][]int)
 	f.mapFields(lt, nil)
 
 	if f.link == nil && f.hash == nil {
@@ -167,7 +150,7 @@ func ReadLinks(r stream.NodeReader, links interface{}) error {
 			stack = append(stack, v)
 			okStack = append(okStack, false)
 
-		} else if it.TokenType == stream.TokenKey && it.Value == LinkKey {
+		} else if it.TokenType == stream.TokenKey && it.Value == links.LinkKey {
 			it.Iter()
 			if f.hash != nil {
 				h, err := ReadLinkPath(it.Value)
@@ -200,4 +183,154 @@ func ReadLinks(r stream.NodeReader, links interface{}) error {
 	}
 
 	return it.LastError
+}
+
+func Unmarshal(r stream.NodeReader, dest interface{}) error {
+	rv := reflect.ValueOf(dest)
+
+	if rv.Kind() != reflect.Ptr {
+		return fmt.Errorf("Expected pointer to struct: found non pointer type %s", rv.Type().String())
+	}
+
+	sv := reflect.Indirect(rv)
+	if sv.Kind() != reflect.Struct {
+		return fmt.Errorf("Expected pointer to struct: found non struct type %s", sv.Type().String())
+	}
+
+	st := sv.Type()
+	if st.Kind() != reflect.Struct {
+		return fmt.Errorf("Expected pointer to struct: found non struct type %s", st.String())
+	}
+
+	it := stream.Iterate(r, nil)
+	defer it.Close()
+
+	it.Iter()
+
+	return fillAnyValue(it, sv)
+}
+
+func fillAnyValue(it *stream.NodeIterator, v reflect.Value) error {
+	if it.TokenType == stream.TokenValue {
+		v.Set(reflect.ValueOf(it.Value))
+		return nil
+	} else if it.TokenType == stream.TokenArray {
+		return fillArray(it, v)
+	} else if it.TokenType == stream.TokenNode {
+		return fillNode(it, v)
+	} else {
+		return fmt.Errorf("NodeReader: unexpected token %s for value", stream.TokenName(it.TokenType))
+	}
+}
+
+func fillNode(it *stream.NodeIterator, v reflect.Value) error {
+	if v.Kind() == reflect.Ptr {
+		v = v.Elem()
+	}
+
+	if v.Kind() != reflect.Struct {
+		return fmt.Errorf("Impossible to assign node %v to non struct %s", it.StringPath(), v.Type().String())
+	}
+
+	var f fields
+	f.mapFields(v.Type(), nil)
+
+	path := it.StringPath()
+	name := ""
+	if len(path) > 0 {
+		name = path[len(path)-1]
+	}
+
+	if f.name != nil {
+		v.FieldByIndex(f.name).SetString(name)
+	}
+	if f.spath != nil {
+		v.FieldByIndex(f.spath).Set(reflect.ValueOf(path))
+	}
+	if f.ipath != nil {
+		v.FieldByIndex(f.ipath).Set(reflect.ValueOf(it.Path))
+	}
+
+	for {
+
+		if !it.Iter() {
+			return fmt.Errorf("unexpected end of NodeReader stream")
+		}
+		if it.TokenType == stream.TokenEndNode {
+			return nil
+		} else if it.TokenType != stream.TokenKey {
+			return fmt.Errorf("NodeReader: unexpected token %s in Node", stream.TokenName(it.TokenType))
+		}
+
+		key, ok := it.ToString()
+		if !ok {
+			return fmt.Errorf("NodeReader: Cannot convert key %#v to string", it.Value)
+		}
+
+		attr, ok := f.attrs[key]
+		if !ok && key != links.LinkKey {
+			it.Skip()
+			continue
+		} else if !ok {
+			attr = nil
+		}
+
+		if !it.Iter() {
+			return fmt.Errorf("unexpected end of NodeReader stream")
+		}
+
+		if key == links.LinkKey && it.TokenType == stream.TokenValue {
+			str, isstr := it.ToString()
+			if isstr && f.link != nil {
+				v.FieldByIndex(f.link).Set(reflect.ValueOf(str))
+			}
+			if isstr && f.hash != nil {
+				h, err := ReadLinkPath(str)
+				if err == nil {
+					v.FieldByIndex(f.hash).Set(reflect.ValueOf(h))
+				}
+			}
+		}
+
+		if attr != nil {
+			err := fillAnyValue(it, v.FieldByIndex(attr))
+			if err != nil {
+				return err
+			}
+		}
+	}
+}
+
+func fillArray(it *stream.NodeIterator, v reflect.Value) error {
+	if v.Kind() == reflect.Ptr {
+		v = v.Elem()
+	}
+
+	t := v.Type()
+	if t.Kind() != reflect.Slice {
+		return fmt.Errorf("Impossible to assign array %v to non slice %s", it.StringPath(), t.String())
+	}
+
+	for {
+
+		if !it.Iter() {
+			return fmt.Errorf("unexpected end of NodeReader stream")
+		}
+		if it.TokenType == stream.TokenEndArray {
+			return nil
+		} else if it.TokenType != stream.TokenIndex {
+			return fmt.Errorf("NodeReader: unexpected token %s in array", stream.TokenName(it.TokenType))
+		}
+
+		if !it.Iter() {
+			return fmt.Errorf("unexpected end of NodeReader stream")
+		}
+
+		v.Set(reflect.Append(v, reflect.Zero(t.Elem())))
+
+		err := fillAnyValue(it, v.Index(v.Len()-1))
+		if err != nil {
+			return err
+		}
+	}
 }
