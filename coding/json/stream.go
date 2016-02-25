@@ -166,14 +166,15 @@ func (p *jsonParser) readNode() error {
 			return fmt.Errorf("JSON: expect string for object key: got %#v", token)
 		}
 		err = p.ExecCallback(reader.TokenKey, strValue)
-		p.Descope()
 		if err != nil {
+			p.Descope()
 			return err
 		}
 
 		p.PushPath(strValue)
 		err = p.readValue()
 		p.PopPath()
+		p.Descope()
 		if err != nil {
 			return err
 		}

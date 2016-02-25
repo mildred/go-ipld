@@ -200,7 +200,7 @@ func (n Node) Read(fun stream.ReadFun) error {
 func read(curr interface{}, fun stream.ReadFun, path []interface{}) error {
 	if nc, ok := curr.(Node); ok { // it's a node!
 		err := fun(path, stream.TokenNode, nil)
-		if err == stream.NodeReadSkip {
+		if err == stream.NodeReadBreak {
 			return nil
 		} else if err != nil {
 			return err
@@ -216,7 +216,7 @@ func read(curr interface{}, fun stream.ReadFun, path []interface{}) error {
 
 		for _, k := range keys {
 			err := fun(path, stream.TokenKey, k)
-			if err == stream.NodeReadSkip {
+			if err == stream.NodeReadBreak {
 				return nil
 			} else if err != nil {
 				return err
@@ -230,7 +230,7 @@ func read(curr interface{}, fun stream.ReadFun, path []interface{}) error {
 		}
 
 		err = fun(path, stream.TokenEndNode, nil)
-		if err == stream.NodeReadSkip {
+		if err == stream.NodeReadBreak {
 			return nil
 		} else if err != nil {
 			return err
@@ -238,7 +238,7 @@ func read(curr interface{}, fun stream.ReadFun, path []interface{}) error {
 
 	} else if sc, ok := curr.([]interface{}); ok { // it's a slice!
 		err := fun(path, stream.TokenArray, nil)
-		if err == stream.NodeReadSkip {
+		if err == stream.NodeReadBreak {
 			return nil
 		} else if err != nil {
 			return err
@@ -246,7 +246,7 @@ func read(curr interface{}, fun stream.ReadFun, path []interface{}) error {
 
 		for i, v := range sc {
 			err := fun(path, stream.TokenIndex, i)
-			if err == stream.NodeReadSkip {
+			if err == stream.NodeReadBreak {
 				return nil
 			} else if err != nil {
 				return err
@@ -260,7 +260,7 @@ func read(curr interface{}, fun stream.ReadFun, path []interface{}) error {
 		}
 
 		err = fun(path, stream.TokenEndArray, nil)
-		if err == stream.NodeReadSkip {
+		if err == stream.NodeReadBreak {
 			return nil
 		} else if err != nil {
 			return err
@@ -268,7 +268,7 @@ func read(curr interface{}, fun stream.ReadFun, path []interface{}) error {
 
 	} else {
 		err := fun(path, stream.TokenValue, curr)
-		if err == stream.NodeReadSkip {
+		if err == stream.NodeReadBreak {
 			return nil
 		} else if err != nil {
 			return err

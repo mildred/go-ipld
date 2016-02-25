@@ -193,6 +193,10 @@ func (s *NodeIterator) Iter() bool {
 	return true
 }
 
+func (s *NodeIterator) Valid() bool {
+	return s.needFeedback
+}
+
 func (s *NodeIterator) Abort() {
 	s.StopError(NodeReadAbort)
 }

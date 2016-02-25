@@ -103,15 +103,30 @@ func TestJsonStream(t *testing.T) {
 	a.MustNil(err)
 
 	readertest.CheckReader(t, json, []readertest.Callback{
-		readertest.Callback{[]interface{}{}, reader.TokenNode, nil},
-		readertest.Callback{[]interface{}{}, reader.TokenKey, "@codec"},
-		readertest.Callback{[]interface{}{"@codec"}, reader.TokenValue, "/json"},
-		readertest.Callback{[]interface{}{}, reader.TokenKey, "abc"},
-		readertest.Callback{[]interface{}{"abc"}, reader.TokenNode, nil},
-		readertest.Callback{[]interface{}{"abc"}, reader.TokenKey, "mlink"},
-		readertest.Callback{[]interface{}{"abc", "mlink"}, reader.TokenValue, "QmXg9Pp2ytZ14xgmQjYEiHjVjMFXzCVVEcRTWJBmLgR39V"},
-		readertest.Callback{[]interface{}{"abc"}, reader.TokenEndNode, nil},
-		readertest.Callback{[]interface{}{}, reader.TokenEndNode, nil},
+		readertest.Cb(readertest.Path(), reader.TokenNode, nil),
+		readertest.Cb(readertest.Path(), reader.TokenKey, "@codec"),
+		readertest.Cb(readertest.Path("@codec"), reader.TokenValue, "/json"),
+		readertest.Cb(readertest.Path(), reader.TokenKey, "abc"),
+		readertest.Cb(readertest.Path("abc"), reader.TokenNode, nil),
+		readertest.Cb(readertest.Path("abc"), reader.TokenKey, "mlink"),
+		readertest.Cb(readertest.Path("abc", "mlink"), reader.TokenValue, "QmXg9Pp2ytZ14xgmQjYEiHjVjMFXzCVVEcRTWJBmLgR39V"),
+		readertest.Cb(readertest.Path("abc"), reader.TokenEndNode, nil),
+		readertest.Cb(readertest.Path(), reader.TokenEndNode, nil),
+	})
+}
+
+func TestJsonStreamSkip(t *testing.T) {
+	a := assrt.NewAssert(t)
+	t.Logf("Reading json.testfile")
+	json, err := Decode(bytes.NewReader(codedFiles["json.testfile"]))
+	a.MustNil(err)
+
+	readertest.CheckReader(t, json, []readertest.Callback{
+		readertest.Cb(readertest.Path(), reader.TokenNode, nil),
+		readertest.Cb(readertest.Path(), reader.TokenKey, "@codec", reader.NodeReadSkip),
+		readertest.Cb(readertest.Path(), reader.TokenKey, "abc"),
+		readertest.Cb(readertest.Path("abc"), reader.TokenNode, nil),
+		readertest.Cb(readertest.Path("abc"), reader.TokenKey, "mlink", reader.NodeReadAbort),
 	})
 }
 
@@ -122,15 +137,15 @@ func TestCborStream(t *testing.T) {
 	a.MustNil(err)
 
 	readertest.CheckReader(t, cbor, []readertest.Callback{
-		readertest.Callback{[]interface{}{}, reader.TokenNode, nil},
-		readertest.Callback{[]interface{}{}, reader.TokenKey, "abc"},
-		readertest.Callback{[]interface{}{"abc"}, reader.TokenNode, nil},
-		readertest.Callback{[]interface{}{"abc"}, reader.TokenKey, "mlink"},
-		readertest.Callback{[]interface{}{"abc", "mlink"}, reader.TokenValue, "QmXg9Pp2ytZ14xgmQjYEiHjVjMFXzCVVEcRTWJBmLgR39V"},
-		readertest.Callback{[]interface{}{"abc"}, reader.TokenEndNode, nil},
-		readertest.Callback{[]interface{}{}, reader.TokenKey, "@codec"},
-		readertest.Callback{[]interface{}{"@codec"}, reader.TokenValue, "/json"},
-		readertest.Callback{[]interface{}{}, reader.TokenEndNode, nil},
+		readertest.Cb(readertest.Path(), reader.TokenNode, nil),
+		readertest.Cb(readertest.Path(), reader.TokenKey, "abc"),
+		readertest.Cb(readertest.Path("abc"), reader.TokenNode, nil),
+		readertest.Cb(readertest.Path("abc"), reader.TokenKey, "mlink"),
+		readertest.Cb(readertest.Path("abc", "mlink"), reader.TokenValue, "QmXg9Pp2ytZ14xgmQjYEiHjVjMFXzCVVEcRTWJBmLgR39V"),
+		readertest.Cb(readertest.Path("abc"), reader.TokenEndNode, nil),
+		readertest.Cb(readertest.Path(), reader.TokenKey, "@codec"),
+		readertest.Cb(readertest.Path("@codec"), reader.TokenValue, "/json"),
+		readertest.Cb(readertest.Path(), reader.TokenEndNode, nil),
 	})
 }
 
@@ -142,30 +157,30 @@ func TestPbStream(t *testing.T) {
 	a.MustNil(err)
 
 	readertest.CheckReader(t, pb, []readertest.Callback{
-		readertest.Callback{[]interface{}{}, reader.TokenNode, nil},
-		readertest.Callback{[]interface{}{}, reader.TokenKey, "data"},
-		readertest.Callback{[]interface{}{"data"}, reader.TokenValue, []byte{0x08, 0x01}},
-		readertest.Callback{[]interface{}{}, reader.TokenKey, "links"},
-		readertest.Callback{[]interface{}{"links"}, reader.TokenArray, nil},
-		readertest.Callback{[]interface{}{"links"}, reader.TokenIndex, 0},
-		readertest.Callback{[]interface{}{"links", 0}, reader.TokenNode, nil},
-		readertest.Callback{[]interface{}{"links", 0}, reader.TokenKey, links.LinkKey},
-		readertest.Callback{[]interface{}{"links", 0, links.LinkKey}, reader.TokenValue, "Qmbvkmk9LFsGneteXk3G7YLqtLVME566ho6ibaQZZVHaC9"},
-		readertest.Callback{[]interface{}{"links", 0}, reader.TokenKey, "name"},
-		readertest.Callback{[]interface{}{"links", 0, "name"}, reader.TokenValue, "a"},
-		readertest.Callback{[]interface{}{"links", 0}, reader.TokenKey, "size"},
-		readertest.Callback{[]interface{}{"links", 0, "size"}, reader.TokenValue, uint64(10)},
-		readertest.Callback{[]interface{}{"links", 0}, reader.TokenEndNode, nil},
-		readertest.Callback{[]interface{}{"links"}, reader.TokenIndex, 1},
-		readertest.Callback{[]interface{}{"links", 1}, reader.TokenNode, nil},
-		readertest.Callback{[]interface{}{"links", 1}, reader.TokenKey, links.LinkKey},
-		readertest.Callback{[]interface{}{"links", 1, links.LinkKey}, reader.TokenValue, "QmR9pC5uCF3UExca8RSrCVL8eKv7nHMpATzbEQkAHpXmVM"},
-		readertest.Callback{[]interface{}{"links", 1}, reader.TokenKey, "name"},
-		readertest.Callback{[]interface{}{"links", 1, "name"}, reader.TokenValue, "b"},
-		readertest.Callback{[]interface{}{"links", 1}, reader.TokenKey, "size"},
-		readertest.Callback{[]interface{}{"links", 1, "size"}, reader.TokenValue, uint64(10)},
-		readertest.Callback{[]interface{}{"links", 1}, reader.TokenEndNode, nil},
-		readertest.Callback{[]interface{}{"links"}, reader.TokenEndArray, nil},
-		readertest.Callback{[]interface{}{}, reader.TokenEndNode, nil},
+		readertest.Cb(readertest.Path(), reader.TokenNode, nil),
+		readertest.Cb(readertest.Path(), reader.TokenKey, "data"),
+		readertest.Cb(readertest.Path("data"), reader.TokenValue, []byte{0x08, 0x01}),
+		readertest.Cb(readertest.Path(), reader.TokenKey, "links"),
+		readertest.Cb(readertest.Path("links"), reader.TokenArray, nil),
+		readertest.Cb(readertest.Path("links"), reader.TokenIndex, 0),
+		readertest.Cb(readertest.Path("links", 0), reader.TokenNode, nil),
+		readertest.Cb(readertest.Path("links", 0), reader.TokenKey, links.LinkKey),
+		readertest.Cb(readertest.Path("links", 0, links.LinkKey), reader.TokenValue, "Qmbvkmk9LFsGneteXk3G7YLqtLVME566ho6ibaQZZVHaC9"),
+		readertest.Cb(readertest.Path("links", 0), reader.TokenKey, "name"),
+		readertest.Cb(readertest.Path("links", 0, "name"), reader.TokenValue, "a"),
+		readertest.Cb(readertest.Path("links", 0), reader.TokenKey, "size"),
+		readertest.Cb(readertest.Path("links", 0, "size"), reader.TokenValue, uint64(10)),
+		readertest.Cb(readertest.Path("links", 0), reader.TokenEndNode, nil),
+		readertest.Cb(readertest.Path("links"), reader.TokenIndex, 1),
+		readertest.Cb(readertest.Path("links", 1), reader.TokenNode, nil),
+		readertest.Cb(readertest.Path("links", 1), reader.TokenKey, links.LinkKey),
+		readertest.Cb(readertest.Path("links", 1, links.LinkKey), reader.TokenValue, "QmR9pC5uCF3UExca8RSrCVL8eKv7nHMpATzbEQkAHpXmVM"),
+		readertest.Cb(readertest.Path("links", 1), reader.TokenKey, "name"),
+		readertest.Cb(readertest.Path("links", 1, "name"), reader.TokenValue, "b"),
+		readertest.Cb(readertest.Path("links", 1), reader.TokenKey, "size"),
+		readertest.Cb(readertest.Path("links", 1, "size"), reader.TokenValue, uint64(10)),
+		readertest.Cb(readertest.Path("links", 1), reader.TokenEndNode, nil),
+		readertest.Cb(readertest.Path("links"), reader.TokenEndArray, nil),
+		readertest.Cb(readertest.Path(), reader.TokenEndNode, nil),
 	})
 }

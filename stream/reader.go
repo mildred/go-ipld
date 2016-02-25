@@ -8,6 +8,7 @@ import (
 type nodeReadErrors struct{ error }
 
 var NodeReadAbort error = &nodeReadErrors{errors.New("abort")}
+var NodeReadBreak error = &nodeReadErrors{errors.New("break")}
 var NodeReadSkip error = &nodeReadErrors{errors.New("skip")}
 
 type ReaderToken int

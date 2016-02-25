@@ -17,7 +17,10 @@ func (p *BaseReader) ExecCallback(token ReaderToken, value interface{}) error {
 	enabled := !p.Skipping()
 	if enabled {
 		err = p.Callback(p.path, token, value)
-		enabled = err != NodeReadSkip
+		if err == NodeReadSkip {
+			enabled = false
+			err = nil
+		}
 	}
 	p.cbEnabled = append(p.cbEnabled, enabled)
 	return err
