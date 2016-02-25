@@ -5,10 +5,11 @@ import (
 	"os"
 
 	dag "github.com/ipfs/go-ipfsld/dag"
+	"github.com/ipfs/go-ipld/links"
 )
 
 type StreamCombinator interface {
-	Apply(ctx cxt.Context, root dag.Link, store dag.Store) (io.Reader, error)
+	Apply(ctx cxt.Context, root links.SimpleHashLink, store dag.Store) (io.Reader, error)
 }
 
 // StackStreamCombinator is a combinator that executes
@@ -30,6 +31,6 @@ func (ssc *StackStreamCombinator) Apply(ctx cxt.Context, root dag.Node, store da
 // - Combinator: function that produces output from Data and Chunks.
 type File struct {
 	Data       []byte
-	Chunks     []dag.Link
-	Combinator dag.Link // when in doubt, concat.
+	Chunks     []links.SimpleHashLink
+	Combinator links.SimpleLink // when in doubt, concat.
 }

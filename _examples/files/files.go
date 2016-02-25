@@ -5,6 +5,7 @@ import (
 	"os"
 
 	dag "github.com/ipfs/go-ipfsld/dag"
+	"github.com/ipfs/go-ipld/links"
 )
 
 // File represents a readable byte stream.
@@ -14,8 +15,8 @@ import (
 // - Combinator: function that produces output from Data and Chunks.
 type File struct {
 	Data       []byte
-	Chunks     []dag.Link
-	Combinator dag.Link // when in doubt, concat.
+	Chunks     []links.SimpleHashLink
+	Combinator links.SimpleHashLink // when in doubt, concat.
 }
 
 // Reader returns an io.Reader which will read from

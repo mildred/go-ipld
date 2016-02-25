@@ -1,7 +1,7 @@
 package sig
 
 import (
-	dag "github.com/ipfs/go-ipfsld/dag"
+	"github.com/ipfs/go-ipld/links"
 )
 
 // Signature is an object that represents a cryptographic
@@ -11,30 +11,29 @@ import (
 //
 //   {
 //    "@context": "/ipfs/<hash-of-schema>/signature"
-//   	"key": "<hash1>",
-//   	"object": "<hash2>",
+//   	"key": { "@link": "<hash1>" },
+//   	"object": { "@link": "<hash2>" },
 //   	"sig": "<sign(sk, <hash2>)>"
 //   }
 //
 type Signature struct {
-	Key    dag.Link // the signing key
-	Object dag.Link // what is signed
-	Sig    []byte   // the data representing the signature
+	Key    links.SimpleHashLink // the signing key
+	Object links.SimpleHashLink // what is signed
+	Sig    []byte               // the data representing the signature
 }
 
 // Sign creates a signature from a given key and a link to data.
 // Since this is a merkledag, signing the link is effectively the
 // same as an hmac signature.
-func Sign(key key.SigningKey, signed dag.Link) (Signature, error) {
-	s := Signature{}
-	s.Key = dag.LinkTo(key)
-	s.Object = dag.LinkTo(signed)
-
-	s, err := dag.Marshal(s.Object)
+func Sign(skey key.SigningKey, signed mh.Multihash) (*Signature, error) {
+	sig, err := skey.Sign(signed)
 	if err != nil {
-		return s, err
+		return nil, err
 	}
 
-	s.Sig, err = key.Sign(s)
-	return s, err
+	return &Signature{
+		Key:    links.SimpleHashLink{Hash: key.Hash},
+		Object: links.SimpleHashLink{Hash: signed},
+		Sig:    sig,
+	}, nil
 }
