@@ -3,7 +3,7 @@ package sig
 import (
 	"os"
 
-	dag "github.com/ipfs/go-ipfsld/dag"
+	mh "github.com/jbenet/go-multihash"
 )
 
 // Dir represents a directory in unixfs. The links are
@@ -14,29 +14,45 @@ import (
 //
 //    {
 //      "@context": "/ipfs/<hash-of-schema>/unixdir",
-//    	"<filename1>": { "@value": "<hash1>", "unixMode": <mode1> },
-//    	"<filename2>": { "@value": "<hash2>", "unixMode": <mode2> },
+//      "entries": [
+//    	  "<filename1>": {
+//          "@link": "<hash1>",
+//          "unixMode": <mode1>,
+//          "size": <size1>
+//    	  },
+//    	  "<filename2>": {
+//          "@link": "<hash2>",
+//          "unixMode": <mode2>,
+//          "size": <size2>
+//        }
+//      ]
 //    }
 //
-type Dir map[string]dag.Link
 
-func (d *Dir) Entry(e string) (dag.Link, error) {
-	l, ok := d[e]
+type EntryLink struct {
+	Hash     mh.Multihash `ipld:"multihash"`
+	Name     string       `ipld:"name"`
+	Size     uint64       `ipld:"key:size"`
+	UnixMode uint32       `ipld:"key:unixMode"`
+}
+
+type Dir struct {
+	Entries map[string]EntryLink `ipld:"key:entries"`
+}
+
+func (d *Dir) Entry(e string) (*EntryLink, error) {
+	l, ok := d.Entries[e]
 	if !ok {
 		return nil, os.ErrNotExist
 	}
-	return l, nil
+	return &l, nil
 }
 
 func (d *Dir) Mode(e string) (os.FileMode, error) {
-	l, err := d.Entry(e)
-	if err != nil {
-		return 0, err
+	l, ok := d.Entries[e]
+	if !ok {
+		return 0, os.ErrNotExist
 	}
 
-	m, ok := l["unixMode"].(os.FileMode)
-	if !ok {
-		return 0, ErrInvalid
-	}
-	return m, nil
+	return (os.FileMode)(l.UnixMode), nil
 }

@@ -21,6 +21,14 @@ type BaseLink struct {
 	StringPath []string      `ipld:"path"`
 }
 
+type SimpleLink struct {
+	Link string `ipld:"link"`
+}
+
+type SimpleHashLink struct {
+	Hash mh.Multihash `ipld:"multihash"`
+}
+
 // Read the hash of an IPLD link.
 func ReadLinkPath(value interface{}) (mh.Multihash, error) {
 	svalue, has_value := value.(string)

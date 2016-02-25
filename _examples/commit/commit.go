@@ -1,26 +1,26 @@
 package commit
 
 import (
-	ipld "github.com/ipfs/go-ipld"
+	"github.com/ipfs/go-ipld/links"
 )
 
 // this would serialize to:
 //
 //   {
 //     "@context": "/ipfs/<hash-to-commit-schema>/commit"
-//     "parents": [ "<hash1>", ... ]
-//     "author": "<hash2>",
-//     "committer": "<hash3>",
-//     "object": "<hash4>",
+//     "parents":   [ {"@link": "<hash1>"}, ... ]
+//     "author":    {"@link": "<hash2>"},
+//     "committer": {"@link": "<hash3>"},
+//     "object":    {"@link": "<hash4>"},
 //     "comment": "comment as a string"
 //   }
 //
 type Commit struct {
-	Parents   []ipld.Link //
-	Author    ipld.Link   // link to an Authorship
-	Committer ipld.Link   // link to an Authorship
-	Object    ipld.Link   // what we version ("tree" in git)
-	Comment   String      // describes the commit
+	Parents   []links.SimpleHashLink //
+	Author    links.SimpleHashLink   // link to an Authorship
+	Committer links.SimpleHashLink   // link to an Authorship
+	Object    links.SimpleHashLink   // what we version ("tree" in git)
+	Comment   string                 // describes the commit
 }
 
 func (c *Commit) IPLDValidate() bool {
