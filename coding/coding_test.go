@@ -103,15 +103,30 @@ func TestJsonStream(t *testing.T) {
 	a.MustNil(err)
 
 	rt.CheckReader(t, json, []rt.Callback{
-		rt.Callback{[]interface{}{}, reader.TokenNode, nil},
-		rt.Callback{[]interface{}{}, reader.TokenKey, "@codec"},
-		rt.Callback{[]interface{}{"@codec"}, reader.TokenValue, "/json"},
-		rt.Callback{[]interface{}{}, reader.TokenKey, "abc"},
-		rt.Callback{[]interface{}{"abc"}, reader.TokenNode, nil},
-		rt.Callback{[]interface{}{"abc"}, reader.TokenKey, "mlink"},
-		rt.Callback{[]interface{}{"abc", "mlink"}, reader.TokenValue, "QmXg9Pp2ytZ14xgmQjYEiHjVjMFXzCVVEcRTWJBmLgR39V"},
-		rt.Callback{[]interface{}{"abc"}, reader.TokenEndNode, nil},
-		rt.Callback{[]interface{}{}, reader.TokenEndNode, nil},
+		rt.Cb(rt.Path(), reader.TokenNode, nil),
+		rt.Cb(rt.Path(), reader.TokenKey, "@codec"),
+		rt.Cb(rt.Path("@codec"), reader.TokenValue, "/json"),
+		rt.Cb(rt.Path(), reader.TokenKey, "abc"),
+		rt.Cb(rt.Path("abc"), reader.TokenNode, nil),
+		rt.Cb(rt.Path("abc"), reader.TokenKey, "mlink"),
+		rt.Cb(rt.Path("abc", "mlink"), reader.TokenValue, "QmXg9Pp2ytZ14xgmQjYEiHjVjMFXzCVVEcRTWJBmLgR39V"),
+		rt.Cb(rt.Path("abc"), reader.TokenEndNode, nil),
+		rt.Cb(rt.Path(), reader.TokenEndNode, nil),
+	})
+}
+
+func TestJsonStreamSkip(t *testing.T) {
+	a := assrt.NewAssert(t)
+	t.Logf("Reading json.testfile")
+	json, err := Decode(bytes.NewReader(codedFiles["json.testfile"]))
+	a.MustNil(err)
+
+	rt.CheckReader(t, json, []rt.Callback{
+		rt.Cb(rt.Path(), reader.TokenNode, nil),
+		rt.Cb(rt.Path(), reader.TokenKey, "@codec", reader.NodeReadSkip),
+		rt.Cb(rt.Path(), reader.TokenKey, "abc"),
+		rt.Cb(rt.Path("abc"), reader.TokenNode, nil),
+		rt.Cb(rt.Path("abc"), reader.TokenKey, "mlink", reader.NodeReadAbort),
 	})
 }
 
@@ -122,15 +137,32 @@ func TestCborStream(t *testing.T) {
 	a.MustNil(err)
 
 	rt.CheckReader(t, cbor, []rt.Callback{
-		rt.Callback{[]interface{}{}, reader.TokenNode, nil},
-		rt.Callback{[]interface{}{}, reader.TokenKey, "abc"},
-		rt.Callback{[]interface{}{"abc"}, reader.TokenNode, nil},
-		rt.Callback{[]interface{}{"abc"}, reader.TokenKey, "mlink"},
-		rt.Callback{[]interface{}{"abc", "mlink"}, reader.TokenValue, "QmXg9Pp2ytZ14xgmQjYEiHjVjMFXzCVVEcRTWJBmLgR39V"},
-		rt.Callback{[]interface{}{"abc"}, reader.TokenEndNode, nil},
-		rt.Callback{[]interface{}{}, reader.TokenKey, "@codec"},
-		rt.Callback{[]interface{}{"@codec"}, reader.TokenValue, "/json"},
-		rt.Callback{[]interface{}{}, reader.TokenEndNode, nil},
+		rt.Cb(rt.Path(), reader.TokenNode, nil),
+		rt.Cb(rt.Path(), reader.TokenKey, "abc"),
+		rt.Cb(rt.Path("abc"), reader.TokenNode, nil),
+		rt.Cb(rt.Path("abc"), reader.TokenKey, "mlink"),
+		rt.Cb(rt.Path("abc", "mlink"), reader.TokenValue, "QmXg9Pp2ytZ14xgmQjYEiHjVjMFXzCVVEcRTWJBmLgR39V"),
+		rt.Cb(rt.Path("abc"), reader.TokenEndNode, nil),
+		rt.Cb(rt.Path(), reader.TokenKey, "@codec"),
+		rt.Cb(rt.Path("@codec"), reader.TokenValue, "/json"),
+		rt.Cb(rt.Path(), reader.TokenEndNode, nil),
+	})
+}
+
+func TestCborStreamSkip(t *testing.T) {
+	a := assrt.NewAssert(t)
+	t.Logf("Reading cbor.testfile")
+	cbor, err := Decode(bytes.NewReader(codedFiles["cbor.testfile"]))
+	a.MustNil(err)
+
+	rt.CheckReader(t, cbor, []rt.Callback{
+		rt.Cb(rt.Path(), reader.TokenNode, nil),
+		rt.Cb(rt.Path(), reader.TokenKey, "abc"),
+		rt.Cb(rt.Path("abc"), reader.TokenNode, nil),
+		rt.Cb(rt.Path("abc"), reader.TokenKey, "mlink", reader.NodeReadSkip),
+		rt.Cb(rt.Path("abc"), reader.TokenEndNode, nil),
+		rt.Cb(rt.Path(), reader.TokenKey, "@codec"),
+		rt.Cb(rt.Path("@codec"), reader.TokenValue, "/json", reader.NodeReadAbort),
 	})
 }
 
@@ -142,30 +174,54 @@ func TestPbStream(t *testing.T) {
 	a.MustNil(err)
 
 	rt.CheckReader(t, pb, []rt.Callback{
-		rt.Callback{[]interface{}{}, reader.TokenNode, nil},
-		rt.Callback{[]interface{}{}, reader.TokenKey, "data"},
-		rt.Callback{[]interface{}{"data"}, reader.TokenValue, []byte{0x08, 0x01}},
-		rt.Callback{[]interface{}{}, reader.TokenKey, "links"},
-		rt.Callback{[]interface{}{"links"}, reader.TokenArray, nil},
-		rt.Callback{[]interface{}{"links"}, reader.TokenIndex, 0},
-		rt.Callback{[]interface{}{"links", 0}, reader.TokenNode, nil},
-		rt.Callback{[]interface{}{"links", 0}, reader.TokenKey, links.LinkKey},
-		rt.Callback{[]interface{}{"links", 0, links.LinkKey}, reader.TokenValue, "Qmbvkmk9LFsGneteXk3G7YLqtLVME566ho6ibaQZZVHaC9"},
-		rt.Callback{[]interface{}{"links", 0}, reader.TokenKey, "name"},
-		rt.Callback{[]interface{}{"links", 0, "name"}, reader.TokenValue, "a"},
-		rt.Callback{[]interface{}{"links", 0}, reader.TokenKey, "size"},
-		rt.Callback{[]interface{}{"links", 0, "size"}, reader.TokenValue, uint64(10)},
-		rt.Callback{[]interface{}{"links", 0}, reader.TokenEndNode, nil},
-		rt.Callback{[]interface{}{"links"}, reader.TokenIndex, 1},
-		rt.Callback{[]interface{}{"links", 1}, reader.TokenNode, nil},
-		rt.Callback{[]interface{}{"links", 1}, reader.TokenKey, links.LinkKey},
-		rt.Callback{[]interface{}{"links", 1, links.LinkKey}, reader.TokenValue, "QmR9pC5uCF3UExca8RSrCVL8eKv7nHMpATzbEQkAHpXmVM"},
-		rt.Callback{[]interface{}{"links", 1}, reader.TokenKey, "name"},
-		rt.Callback{[]interface{}{"links", 1, "name"}, reader.TokenValue, "b"},
-		rt.Callback{[]interface{}{"links", 1}, reader.TokenKey, "size"},
-		rt.Callback{[]interface{}{"links", 1, "size"}, reader.TokenValue, uint64(10)},
-		rt.Callback{[]interface{}{"links", 1}, reader.TokenEndNode, nil},
-		rt.Callback{[]interface{}{"links"}, reader.TokenEndArray, nil},
-		rt.Callback{[]interface{}{}, reader.TokenEndNode, nil},
+		rt.Cb(rt.Path(), reader.TokenNode, nil),
+		rt.Cb(rt.Path(), reader.TokenKey, "data"),
+		rt.Cb(rt.Path("data"), reader.TokenValue, []byte{0x08, 0x01}),
+		rt.Cb(rt.Path(), reader.TokenKey, "links"),
+		rt.Cb(rt.Path("links"), reader.TokenArray, nil),
+		rt.Cb(rt.Path("links"), reader.TokenIndex, 0),
+		rt.Cb(rt.Path("links", 0), reader.TokenNode, nil),
+		rt.Cb(rt.Path("links", 0), reader.TokenKey, links.LinkKey),
+		rt.Cb(rt.Path("links", 0, links.LinkKey), reader.TokenValue, "Qmbvkmk9LFsGneteXk3G7YLqtLVME566ho6ibaQZZVHaC9"),
+		rt.Cb(rt.Path("links", 0), reader.TokenKey, "name"),
+		rt.Cb(rt.Path("links", 0, "name"), reader.TokenValue, "a"),
+		rt.Cb(rt.Path("links", 0), reader.TokenKey, "size"),
+		rt.Cb(rt.Path("links", 0, "size"), reader.TokenValue, uint64(10)),
+		rt.Cb(rt.Path("links", 0), reader.TokenEndNode, nil),
+		rt.Cb(rt.Path("links"), reader.TokenIndex, 1),
+		rt.Cb(rt.Path("links", 1), reader.TokenNode, nil),
+		rt.Cb(rt.Path("links", 1), reader.TokenKey, links.LinkKey),
+		rt.Cb(rt.Path("links", 1, links.LinkKey), reader.TokenValue, "QmR9pC5uCF3UExca8RSrCVL8eKv7nHMpATzbEQkAHpXmVM"),
+		rt.Cb(rt.Path("links", 1), reader.TokenKey, "name"),
+		rt.Cb(rt.Path("links", 1, "name"), reader.TokenValue, "b"),
+		rt.Cb(rt.Path("links", 1), reader.TokenKey, "size"),
+		rt.Cb(rt.Path("links", 1, "size"), reader.TokenValue, uint64(10)),
+		rt.Cb(rt.Path("links", 1), reader.TokenEndNode, nil),
+		rt.Cb(rt.Path("links"), reader.TokenEndArray, nil),
+		rt.Cb(rt.Path(), reader.TokenEndNode, nil),
+	})
+}
+
+func TestPbStreamSkip(t *testing.T) {
+	a := assrt.NewAssert(t)
+	t.Logf("Reading protobuf.testfile")
+	t.Logf("Bytes: %v", codedFiles["protobuf.testfile"])
+	pb, err := Decode(bytes.NewReader(codedFiles["protobuf.testfile"]))
+	a.MustNil(err)
+
+	rt.CheckReader(t, pb, []rt.Callback{
+		rt.Cb(rt.Path(), reader.TokenNode, nil),
+		rt.Cb(rt.Path(), reader.TokenKey, "data"),
+		rt.Cb(rt.Path("data"), reader.TokenValue, []byte{0x08, 0x01}),
+		rt.Cb(rt.Path(), reader.TokenKey, "links"),
+		rt.Cb(rt.Path("links"), reader.TokenArray, nil),
+		rt.Cb(rt.Path("links"), reader.TokenIndex, 0, reader.NodeReadSkip),
+		rt.Cb(rt.Path("links"), reader.TokenIndex, 1),
+		rt.Cb(rt.Path("links", 1), reader.TokenNode, nil),
+		rt.Cb(rt.Path("links", 1), reader.TokenKey, links.LinkKey),
+		rt.Cb(rt.Path("links", 1, links.LinkKey), reader.TokenValue, "QmR9pC5uCF3UExca8RSrCVL8eKv7nHMpATzbEQkAHpXmVM"),
+		rt.Cb(rt.Path("links", 1), reader.TokenKey, "name", reader.NodeReadSkip),
+		rt.Cb(rt.Path("links", 1), reader.TokenKey, "size"),
+		rt.Cb(rt.Path("links", 1, "size"), reader.TokenValue, uint64(10), reader.NodeReadAbort),
 	})
 }

@@ -41,10 +41,10 @@ func TestLinksStringEmptyMeta(t *testing.T) {
 	}
 
 	readertest.CheckReader(t, cbor, []readertest.Callback{
-		readertest.Callback{[]interface{}{}, reader.TokenNode, nil},
-		readertest.Callback{[]interface{}{}, reader.TokenKey, links.LinkKey},
-		readertest.Callback{[]interface{}{links.LinkKey}, reader.TokenValue, "#/foo/bar"},
-		readertest.Callback{[]interface{}{}, reader.TokenEndNode, nil},
+		readertest.Cb(readertest.Path(), reader.TokenNode, nil),
+		readertest.Cb(readertest.Path(), reader.TokenKey, links.LinkKey),
+		readertest.Cb(readertest.Path(links.LinkKey), reader.TokenValue, "#/foo/bar"),
+		readertest.Cb(readertest.Path(), reader.TokenEndNode, nil),
 	})
 }
 
@@ -87,14 +87,14 @@ func TestLinksStringNonEmptyMetaCheckOrdering(t *testing.T) {
 	}
 
 	readertest.CheckReader(t, cbor, []readertest.Callback{
-		readertest.Callback{[]interface{}{}, reader.TokenNode, nil},
-		readertest.Callback{[]interface{}{}, reader.TokenKey, links.LinkKey},
-		readertest.Callback{[]interface{}{links.LinkKey}, reader.TokenValue, "#/foo/bar"},
-		readertest.Callback{[]interface{}{}, reader.TokenKey, "00"},
-		readertest.Callback{[]interface{}{"00"}, reader.TokenValue, uint64(11)},
-		readertest.Callback{[]interface{}{}, reader.TokenKey, "size"},
-		readertest.Callback{[]interface{}{"size"}, reader.TokenValue, uint64(55)},
-		readertest.Callback{[]interface{}{}, reader.TokenEndNode, nil},
+		readertest.Cb(readertest.Path(), reader.TokenNode, nil),
+		readertest.Cb(readertest.Path(), reader.TokenKey, links.LinkKey),
+		readertest.Cb(readertest.Path(links.LinkKey), reader.TokenValue, "#/foo/bar"),
+		readertest.Cb(readertest.Path(), reader.TokenKey, "00"),
+		readertest.Cb(readertest.Path("00"), reader.TokenValue, uint64(11)),
+		readertest.Cb(readertest.Path(), reader.TokenKey, "size"),
+		readertest.Cb(readertest.Path("size"), reader.TokenValue, uint64(55)),
+		readertest.Cb(readertest.Path(), reader.TokenEndNode, nil),
 	})
 }
 
@@ -133,9 +133,9 @@ func TestLinksMultiAddr(t *testing.T) {
 	}
 
 	readertest.CheckReader(t, cbor, []readertest.Callback{
-		readertest.Callback{[]interface{}{}, reader.TokenNode, nil},
-		readertest.Callback{[]interface{}{}, reader.TokenKey, links.LinkKey},
-		readertest.Callback{[]interface{}{links.LinkKey}, reader.TokenValue, ma.String()},
-		readertest.Callback{[]interface{}{}, reader.TokenEndNode, nil},
+		readertest.Cb(readertest.Path(), reader.TokenNode, nil),
+		readertest.Cb(readertest.Path(), reader.TokenKey, links.LinkKey),
+		readertest.Cb(readertest.Path(links.LinkKey), reader.TokenValue, ma.String()),
+		readertest.Cb(readertest.Path(), reader.TokenEndNode, nil),
 	})
 }

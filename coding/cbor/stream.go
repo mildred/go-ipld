@@ -62,7 +62,11 @@ func (d *CBORDecoder) Read(cb reader.ReadFun) error {
 		}
 	}
 	dec := cbor.NewDecoder(d.r)
-	return dec.DecodeAny(&cborParser{reader.CreateBaseReader(cb), dec, []bool{false}})
+	err := dec.DecodeAny(&cborParser{reader.CreateBaseReader(cb), dec, []bool{false}})
+	if err == reader.NodeReadAbort {
+		err = nil
+	}
+	return err
 }
 
 func (p *cborParser) Prepare() error {
@@ -168,13 +172,13 @@ func (p *cborParser) CreateMapKey() (cbor.DecodeValue, error) {
 
 func (p *cborParser) CreateMapValue(key cbor.DecodeValue) (cbor.DecodeValue, error) {
 	err := p.ExecCallback(reader.TokenKey, key.(*cbor.MemoryValue).Value)
-	p.Descope()
 	p.PushPath(key.(*cbor.MemoryValue).Value)
 	return p, err
 }
 
 func (p *cborParser) SetMap(key, val cbor.DecodeValue) error {
 	p.PopPath()
+	p.Descope()
 	return nil
 }
 
@@ -203,7 +207,6 @@ func (p *cborParser) GetArrayValue(index uint64) (cbor.DecodeValue, error) {
 	}
 	p.tagStack = append(p.tagStack, false)
 	err := p.ExecCallback(reader.TokenIndex, index)
-	p.Descope()
 	p.PushPath(index)
 	return p, err
 }
@@ -213,6 +216,7 @@ func (p *cborParser) AppendArray(val cbor.DecodeValue) error {
 		return nil
 	}
 	p.PopPath()
+	p.Descope()
 	return nil
 }
 
